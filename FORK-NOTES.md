@@ -39,7 +39,7 @@ Applied by `tools/strip_xray.py` (`rules_fork_ui`), so they survive every sync:
   - the "run from /tmp" red hint and the GitHub-proxy description removed
   - Passwall2 update check points at `lima-droid/openwrt-passwall2` releases
 - **Log pages** (`log/log.htm`, `server/log.htm`)
-  - log textarea pinned to 12px monospace so the theme cannot blow it up
+  - log textarea pinned to 13px monospace so the theme cannot blow it up
 
 ## How upstream updates are pulled in
 
