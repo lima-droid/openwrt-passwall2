@@ -363,6 +363,15 @@ local com = self.com
 		margin-right: auto;
 		padding-bottom: 2.9em;
 	}
+	/* keep the label and the control on the same centre line, for every row */
+	.passwall2-update-box > .cbi-value {
+		display: flex;
+		align-items: center;
+	}
+	.passwall2-update-box > .cbi-value > .cbi-value-field {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
 </style>
 
 <%for _, k in ipairs(com.order) do
