@@ -717,16 +717,10 @@ APP_VERSION_HTM = APP + "/luasrc/view/passwall2/app_update/app_version.htm"
 LOG_HTM = APP + "/luasrc/view/passwall2/log/log.htm"
 SERVER_LOG_HTM = APP + "/luasrc/view/passwall2/server/log.htm"
 
-OLD_VERSION_CSS = (
-    "\t#app_version .app-version-sub {\n"
-    "\t\tdisplay: block;\n"
-    "\t\tfont-size: .85em;\n"
-    "\t\tfont-weight: normal;\n"
-    "\t\topacity: .7;\n"
-    "\t}"
-)
+CSS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "app_version.css")
 
-BASE_CSS_OLD = (
+# upstream's three rules for the version rows; replaced wholesale by tools/ui/app_version.css
+CSS_OLD = (
     "\t#app_version > .cbi-value {\n"
     "\t\tdisplay: flex;\n"
     "\t\tflex-wrap: wrap;\n"
@@ -736,47 +730,30 @@ BASE_CSS_OLD = (
     "\t\tpadding-top: .25rem;\n"
     "\t\tpadding-bottom: .25rem;\n"
     "\t}\n"
-)
-
-BASE_CSS_NEW = (
-    "\t#app_version > .cbi-value {\n"
-    "\t\tdisplay: flex;\n"
-    "\t\tflex-wrap: wrap;\n"
-    "\t\talign-items: center;\n"
-    "\t\tmargin-top: 0;\n"
-    "\t\tmargin-bottom: 0;\n"
-    "\t\tpadding-top: .4rem;\n"
-    "\t\tpadding-bottom: .4rem;\n"
-    "\t}\n"
-    "\t/* argon gives .cbi-value-description a big padding and a 0.75rem font; both\n"
-    "\t   make the version row look loose and tiny */\n"
-    "\t#app_version .cbi-value-description {\n"
-    "\t\tpadding: 0;\n"
-    "\t\tfont-size: .875rem;\n"
-    "\t\tline-height: 1.4;\n"
-    "\t\tcolor: inherit;\n"
-    "\t}\n"
-)
-
-NEW_VERSION_CSS = (
-    "\t/* Keep the version rows on the theme's label column so they line up with the\n"
-    "\t   option rows below, and give the version its own fixed column so the\n"
-    "\t   brackets and the buttons line up in two clean vertical lines. */\n"
-    "\t#app_version > .app-version-row > .cbi-value-field {\n"
-    "\t\tflex: 1 1 auto;\n"
-    "\t\tmin-width: 0;\n"
-    "\t\tmargin-left: 0;\n"
+    "\t#app_version > .cbi-value > .cbi-value-title {\n"
+    "\t\tpadding-top: 0;\n"
+    "\t\tpadding-bottom: 0;\n"
+    "\t\tline-height: 1.2;\n"
     "\t}\n"
     "\t#app_version .app-version-sub {\n"
-    "\t\tdisplay: inline-block;\n"
-    "\t\twidth: 7.5rem;\n"
-    "\t\ttext-align: left;\n"
-    "\t\tmargin-right: .4rem;\n"
-    "\t\twhite-space: nowrap;\n"
+    "\t\tdisplay: block;\n"
+    "\t\tfont-size: .85em;\n"
     "\t\tfont-weight: normal;\n"
-    "\t\topacity: .85;\n"
+    "\t\topacity: .7;\n"
     "\t}"
 )
+
+
+def fork_style_block():
+    """The fork's <style> content, kept in tools/ui/app_version.css."""
+    with open(CSS_FILE, encoding="utf-8") as f:
+        css = f.read()
+    return css.strip("\n")
+
+
+PW_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title">Passwall2 <%:Version%>'
+LOOP_HEAD = "<%for _, k in ipairs(com.order) do"
+LOOP_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title"><%=v.name%>'
 
 LOOP_LABEL_OLD = (
     '\t<label class="cbi-value-title"><%=v.name%>\n'
@@ -804,29 +781,6 @@ PW_LABEL_NEW = (
     '\t<div class="cbi-value-field">\n'
     '\t\t<div class="cbi-value-description">\n'
     '\t\t\t<span class="app-version-sub">【 <%=api.get_version()%> 】</span>\n'
-)
-
-PW_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title">Passwall2 <%:Version%>'
-LOOP_HEAD = "<%for _, k in ipairs(com.order) do"
-LOOP_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title"><%=v.name%>'
-
-TITLE_RULE = (
-    "\t#app_version > .cbi-value > .cbi-value-title {\n"
-    "\t\tpadding-top: 0;\n"
-    "\t\tpadding-bottom: 0;\n"
-    "\t\tline-height: 1.2;\n"
-    "\t}\n"
-)
-
-BOX_CSS = (
-    "\t/* Keep the form in a centred column instead of hugging the left edge of a\n"
-    "\t   full-width card, and leave two blank lines of breathing room at the bottom. */\n"
-    "\t.passwall2-update-box {\n"
-    "\t\tmax-width: 46rem;\n"
-    "\t\tmargin-left: auto;\n"
-    "\t\tmargin-right: auto;\n"
-    "\t\tpadding-bottom: 2.9em;\n"
-    "\t}\n"
 )
 
 BOX_JS = (
@@ -896,17 +850,9 @@ def rules_fork_ui(tree):
 
     # 3. component rows first (Geoview, Sing-Box), Passwall2 last, buttons aligned
     text = tree.text(APP_VERSION_HTM)
-    if BASE_CSS_OLD not in text:
-        raise RuleError("%s: base cbi-value style anchor changed" % APP_VERSION_HTM)
-    text = text.replace(BASE_CSS_OLD, BASE_CSS_NEW, 1)
-
-    if OLD_VERSION_CSS not in text:
+    if CSS_OLD not in text:
         raise RuleError("%s: app-version style anchor changed" % APP_VERSION_HTM)
-    text = text.replace(OLD_VERSION_CSS, NEW_VERSION_CSS)
-
-    if TITLE_RULE not in text:
-        raise RuleError("%s: title rule anchor changed" % APP_VERSION_HTM)
-    text = text.replace(TITLE_RULE, TITLE_RULE + BOX_CSS, 1)
+    text = text.replace(CSS_OLD, fork_style_block(), 1)
 
     if PW_ROW_HEAD not in text:
         raise RuleError("%s: Passwall2 row anchor changed" % APP_VERSION_HTM)

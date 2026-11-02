@@ -330,27 +330,23 @@ local com = self.com
 		line-height: 1.4;
 		color: inherit;
 	}
-	#app_version > .cbi-value > .cbi-value-title {
+	/* one label column shared by the version rows and the option rows below them,
+	   so every label ends on the same vertical line */
+	#app_version > .cbi-value > .cbi-value-title,
+	.passwall2-update-box > .cbi-value > .cbi-value-title {
 		padding-top: 0;
 		padding-bottom: 0;
 		line-height: 1.2;
+		flex: 0 0 11rem;
+		width: 11rem;
+		min-width: 11rem;
 	}
-	/* Keep the form in a centred column instead of hugging the left edge of a
-	   full-width card, and leave two blank lines of breathing room at the bottom. */
-	.passwall2-update-box {
-		max-width: 46rem;
-		margin-left: auto;
-		margin-right: auto;
-		padding-bottom: 2.9em;
-	}
-	/* Keep the version rows on the theme's label column so they line up with the
-	   option rows below, and give the version its own fixed column so the
-	   brackets and the buttons line up in two clean vertical lines. */
 	#app_version > .app-version-row > .cbi-value-field {
 		flex: 1 1 auto;
 		min-width: 0;
 		margin-left: 0;
 	}
+	/* fixed version column: 【 starts on one line, the buttons on another */
 	#app_version .app-version-sub {
 		display: inline-block;
 		width: 7.5rem;
@@ -359,6 +355,13 @@ local com = self.com
 		white-space: nowrap;
 		font-weight: normal;
 		opacity: .85;
+	}
+	/* a compact form, centred, with two blank lines of air at the bottom */
+	.passwall2-update-box {
+		max-width: 40rem;
+		margin-left: auto;
+		margin-right: auto;
+		padding-bottom: 2.9em;
 	}
 </style>
 
