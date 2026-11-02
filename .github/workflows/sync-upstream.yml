@@ -1,0 +1,105 @@
+#
+# Re-derive this fork from upstream: clone upstream, strip Xray, validate, push.
+# Deliberately not a git merge: see FORK-NOTES.md.
+#
+name: Sync upstream
+
+on:
+  schedule:
+    # every day at 03:17 UTC
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/Openwrt-Passwall/openwrt-passwall2.git
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validator dependency
+        run: python3 -m pip install --quiet luaparser
+
+      - name: Clone upstream
+        run: |
+          rm -rf /tmp/upstream
+          git clone --depth 1 "$UPSTREAM" /tmp/upstream
+          echo "UPSTREAM_SHA=$(git -C /tmp/upstream rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "UPSTREAM_SUBJECT=$(git -C /tmp/upstream log -1 --pretty=%s)" >> "$GITHUB_ENV"
+
+      - name: Strip Xray
+        run: python3 tools/strip_xray.py /tmp/upstream
+
+      - name: Validate generated tree
+        run: python3 tools/check_tree.py /tmp/upstream
+
+      - name: Sync into this repository
+        run: |
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'tools' \
+            --exclude 'FORK-NOTES.md' \
+            --exclude '.github/workflows/sync-upstream.yml' \
+            /tmp/upstream/ ./
+
+      - name: Commit and push
+        run: |
+          git config user.name "passwall2-noxray-sync"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "already up to date with upstream ${UPSTREAM_SHA:0:10}"
+            exit 0
+          fi
+          git commit -m "sync: upstream ${UPSTREAM_SHA:0:10}" \
+                      -m "upstream: ${UPSTREAM_SUBJECT}" \
+                      -m "Xray re-stripped by tools/strip_xray.py"
+          git push
+
+      - name: Open an issue when the sync breaks
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create sync-failure --color B60205 --force >/dev/null 2>&1 || true
+          if gh issue list --label sync-failure --state open --limit 1 | grep -q .; then
+            echo "an open sync-failure issue already exists"
+            exit 0
+          fi
+          {
+            echo "Upstream \`${UPSTREAM_SHA:0:10}\` cannot be converted automatically."
+            echo
+            echo "The transform or the validation step failed, so this repository was left untouched."
+            echo "See the failed run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "Reproduce locally:"
+            echo '```bash'
+            echo 'git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall2.git /tmp/upstream'
+            echo 'python3 tools/strip_xray.py /tmp/upstream'
+            echo 'python3 tools/check_tree.py /tmp/upstream'
+            echo '```'
+            echo
+            echo "Fix the failing rule in \`tools/strip_xray.py\`, commit, then run the workflow again."
+          } > /tmp/issue.md
+          gh issue create \
+            --title "sync-failure: upstream ${UPSTREAM_SHA:0:10} needs a rule update" \
+            --body-file /tmp/issue.md \
+            --label sync-failure
