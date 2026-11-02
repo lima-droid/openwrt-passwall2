@@ -159,7 +159,7 @@ function reset_config()
 				out[#out + 1] = line
 			end
 		end
-		fs.writefile(c_config, table.concat(out, "\n") .. "\n")
+		fs.writefile("/etc/config/" .. c_config, table.concat(out, "\n") .. "\n")
 	end
 	http.redirect(api.url())
 end

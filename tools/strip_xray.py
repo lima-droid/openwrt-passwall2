@@ -915,7 +915,7 @@ def rules_fork_ui(tree):
         "\t\t\t\tout[#out + 1] = line\n"
         "\t\t\tend\n"
         "\t\tend\n"
-        '\t\tfs.writefile(c_config, table.concat(out, "\\n") .. "\\n")\n'
+        '\t\tfs.writefile("/etc/config/" .. c_config, table.concat(out, "\\n") .. "\\n")\n'
         "\tend\n",
     )
 
