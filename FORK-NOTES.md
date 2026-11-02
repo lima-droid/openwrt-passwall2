@@ -22,6 +22,19 @@ with **all Xray support removed**. Everything else follows upstream.
 Hysteria2, TUIC, AnyTLS, WireGuard, SSH, VMess, VLESS, Trojan, Shadowsocks and ShadowsocksR
 keep working through sing-box — these are sing-box features, not Xray ones.
 
+## UI tweaks on top of upstream
+
+Applied by `tools/strip_xray.py` (`rules_fork_ui`), so they survive every sync:
+
+- **Component update page** (`app_update.lua`, `app_version.htm`)
+  - rows ordered Geoview → Sing-Box → Passwall2, Xray row gone
+  - fixed label column, so all "Check update" buttons line up
+  - form centred in a 46rem column, two blank lines of padding at the bottom
+  - the "run from /tmp" red hint and the GitHub-proxy description removed
+  - Passwall2 update check points at `lima-droid/openwrt-passwall2` releases
+- **Log pages** (`log/log.htm`, `server/log.htm`)
+  - log textarea pinned to 12px monospace so the theme cannot blow it up
+
 ## How upstream updates are pulled in
 
 This fork is **not** a merge of upstream. Resolving merge conflicts in ~25 rewritten files

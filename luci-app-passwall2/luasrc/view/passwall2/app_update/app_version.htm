@@ -327,33 +327,39 @@ local com = self.com
 		padding-bottom: 0;
 		line-height: 1.2;
 	}
+	/* Keep the form in a centred column instead of hugging the left edge of a
+	   full-width card, and leave two blank lines of breathing room at the bottom. */
+	.passwall2-update-box {
+		max-width: 46rem;
+		margin-left: auto;
+		margin-right: auto;
+		padding-bottom: 2.9em;
+	}
+	/* Fixed label column, so every "Check update" button starts on the same
+	   vertical line no matter how wide the version text next to the label is. */
+	#app_version > .app-version-row > .cbi-value-title {
+		flex: 0 0 14rem;
+		width: 14rem;
+		min-width: 14rem;
+	}
+	#app_version > .app-version-row > .cbi-value-field {
+		flex: 1 1 auto;
+		min-width: 0;
+		margin-left: 0;
+	}
 	#app_version .app-version-sub {
-		display: block;
-		font-size: .85em;
+		display: inline-block;
+		margin-left: .35rem;
+		font-size: .95em;
 		font-weight: normal;
-		opacity: .7;
+		opacity: .75;
 	}
 </style>
-
-<div class="cbi-value">
-	<label class="cbi-value-title">Passwall2 <%:Version%>
-		<span class="app-version-sub"><%=api.get_version()%></span>
-	</label>
-	<div class="cbi-value-field">
-		<div class="cbi-value-description">
-			<input class="btn cbi-button cbi-button-apply" type="button" id="<%=api.appname%>-check_btn" data-update-app="<%=api.appname%>"
-				onclick="onBtnClick(this, appname);" value="<%:Check update%>" />
-			<input class="btn cbi-button cbi-button-apply" type="button" id="_<%=api.appname%>-force_btn" data-update-app="<%=api.appname%>"
-				onclick="doUpdate(this, appname);" value="<%:Force update%>" style="display:none" />
-			<span id="<%=api.appname%>-check_btn-detail"></span>
-		</div>
-	</div>
-</div>
 
 <%for _, k in ipairs(com.order) do
 	local v = com[k]
 %>
-<div class="cbi-value">
+<div class="cbi-value app-version-row">
 	<label class="cbi-value-title"><%=v.name%>
 		<%:Version%>
 		<span class="app-version-sub"><span class="com_version" key="<%=k%>"><%=translate("Null")%></span></span>
@@ -369,6 +375,22 @@ local com = self.com
 	</div>
 </div>
 <%end%>
+
+<div class="cbi-value app-version-row">
+	<label class="cbi-value-title">Passwall2 <%:Version%>
+		<span class="app-version-sub"><%=api.get_version()%></span>
+	</label>
+	<div class="cbi-value-field">
+		<div class="cbi-value-description">
+			<input class="btn cbi-button cbi-button-apply" type="button" id="<%=api.appname%>-check_btn" data-update-app="<%=api.appname%>"
+				onclick="onBtnClick(this, appname);" value="<%:Check update%>" />
+			<input class="btn cbi-button cbi-button-apply" type="button" id="_<%=api.appname%>-force_btn" data-update-app="<%=api.appname%>"
+				onclick="doUpdate(this, appname);" value="<%:Force update%>" style="display:none" />
+			<span id="<%=api.appname%>-check_btn-detail"></span>
+		</div>
+	</div>
+</div>
+
 
 <script type="text/javascript">
 	//<![CDATA[
@@ -393,3 +415,14 @@ local com = self.com
 	//]]>
 </script>
 </div>
+
+<script type="text/javascript">
+	//<![CDATA[
+	document.addEventListener("DOMContentLoaded", function () {
+		var elm = document.getElementById("app_version");
+		if (!elm || !elm.closest) return;
+		var box = elm.closest(".cbi-section-node");
+		if (box) box.classList.add("passwall2-update-box");
+	});
+	//]]>
+</script>

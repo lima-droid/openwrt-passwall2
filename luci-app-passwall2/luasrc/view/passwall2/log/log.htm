@@ -39,6 +39,15 @@ local api = require "luci.passwall2.api"
 	);
 	//]]>
 </script>
+<style>
+	/* Log output: pin font size/family so the page does not inherit an oversized
+	   textarea font from the LuCI theme. */
+	#log_textarea {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+		font-size: 12px;
+		line-height: 1.45;
+	}
+</style>
 <fieldset class="cbi-section" id="_log_fieldset">
 	<input class="btn cbi-button cbi-button-remove" type="button" onclick="clearlog()" value="<%:Clear logs%>" />
 	<textarea id="log_textarea" class="cbi-input-textarea" style="width: 100%;margin-top: 10px;" data-update="change" rows="40" wrap="off" readonly="readonly"></textarea>

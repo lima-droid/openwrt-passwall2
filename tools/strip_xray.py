@@ -705,6 +705,181 @@ def rules_po(tree):
         tree.drop_po_blocks(APP + "/po/%s/passwall2.po" % lang, 9)
 
 
+# ---------------------------------------------------------------------------
+# Fork UI: component-update page layout + log font.
+#
+# These are our own tweaks on top of upstream. They run after the Xray removal and
+# must stay idempotent, because every sync re-applies them to a fresh upstream tree.
+# ---------------------------------------------------------------------------
+
+APP_UPDATE_LUA = APP + "/luasrc/model/cbi/passwall2/client/app_update.lua"
+APP_VERSION_HTM = APP + "/luasrc/view/passwall2/app_update/app_version.htm"
+LOG_HTM = APP + "/luasrc/view/passwall2/log/log.htm"
+SERVER_LOG_HTM = APP + "/luasrc/view/passwall2/server/log.htm"
+
+OLD_VERSION_CSS = (
+    "\t#app_version .app-version-sub {\n"
+    "\t\tdisplay: block;\n"
+    "\t\tfont-size: .85em;\n"
+    "\t\tfont-weight: normal;\n"
+    "\t\topacity: .7;\n"
+    "\t}"
+)
+
+NEW_VERSION_CSS = (
+    "\t/* Fixed label column, so every \"Check update\" button starts on the same\n"
+    "\t   vertical line no matter how wide the version text next to the label is. */\n"
+    "\t#app_version > .app-version-row > .cbi-value-title {\n"
+    "\t\tflex: 0 0 14rem;\n"
+    "\t\twidth: 14rem;\n"
+    "\t\tmin-width: 14rem;\n"
+    "\t}\n"
+    "\t#app_version > .app-version-row > .cbi-value-field {\n"
+    "\t\tflex: 1 1 auto;\n"
+    "\t\tmin-width: 0;\n"
+    "\t\tmargin-left: 0;\n"
+    "\t}\n"
+    "\t#app_version .app-version-sub {\n"
+    "\t\tdisplay: inline-block;\n"
+    "\t\tmargin-left: .35rem;\n"
+    "\t\tfont-size: .95em;\n"
+    "\t\tfont-weight: normal;\n"
+    "\t\topacity: .75;\n"
+    "\t}"
+)
+
+PW_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title">Passwall2 <%:Version%>'
+LOOP_HEAD = "<%for _, k in ipairs(com.order) do"
+LOOP_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title"><%=v.name%>'
+
+TITLE_RULE = (
+    "\t#app_version > .cbi-value > .cbi-value-title {\n"
+    "\t\tpadding-top: 0;\n"
+    "\t\tpadding-bottom: 0;\n"
+    "\t\tline-height: 1.2;\n"
+    "\t}\n"
+)
+
+BOX_CSS = (
+    "\t/* Keep the form in a centred column instead of hugging the left edge of a\n"
+    "\t   full-width card, and leave two blank lines of breathing room at the bottom. */\n"
+    "\t.passwall2-update-box {\n"
+    "\t\tmax-width: 46rem;\n"
+    "\t\tmargin-left: auto;\n"
+    "\t\tmargin-right: auto;\n"
+    "\t\tpadding-bottom: 2.9em;\n"
+    "\t}\n"
+)
+
+BOX_JS = (
+    '<script type="text/javascript">\n'
+    "\t//<![CDATA[\n"
+    '\tdocument.addEventListener("DOMContentLoaded", function () {\n'
+    '\t\tvar elm = document.getElementById("app_version");\n'
+    "\t\tif (!elm || !elm.closest) return;\n"
+    '\t\tvar box = elm.closest(".cbi-section-node");\n'
+    '\t\tif (box) box.classList.add("passwall2-update-box");\n'
+    "\t});\n"
+    "\t//]]>\n"
+    "</script>\n"
+)
+
+LOG_STYLE = """</script>
+<style>
+	/* Log output: pin font size/family so the page does not inherit an oversized
+	   textarea font from the LuCI theme. */
+	#log_textarea {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+		font-size: 12px;
+		line-height: 1.45;
+	}
+</style>
+<fieldset class="cbi-section" id="_log_fieldset">"""
+
+
+def rules_fork_ui(tree):
+    # 1. the in-app updater must look at this repository, not the upstream API cache
+    tree.sub(
+        COM,
+        "-- The LuCI package has its own update flow and is not a binary component.\n"
+        "_M.passwall2 = {\n"
+        '\tname = "PassWall2",\n'
+        "\tget_url = gh_release_url\n"
+        "}",
+        "-- The LuCI package has its own update flow and is not a binary component.\n"
+        "-- This fork publishes its own releases, so the in-app updater must look at this\n"
+        "-- repository instead of the upstream API cache.\n"
+        'local FORK_RELEASES = "https://api.github.com/repos/lima-droid/openwrt-passwall2/releases/latest"\n'
+        "\n"
+        "_M.passwall2 = {\n"
+        '\tname = "PassWall2",\n'
+        "\tget_url = function(self)\n"
+        "\t\treturn FORK_RELEASES\n"
+        "\tend\n"
+        "}",
+    )
+
+    # 2. drop the "run from /tmp" hint and the GitHub-proxy description
+    tree.sub(
+        APP_UPDATE_LUA,
+        'o = s:option(DummyValue, "tips", " ")\n'
+        "o.rawhtml = true\n"
+        "o.cfgvalue = function(t, n)\n"
+        "\treturn string.format('<font color=\"red\">%s</font>', translate(\"if you want to run from memory, change the path, /tmp beginning then save the application and update it manually.\"))\n"
+        "end\n"
+        "\n",
+        "",
+    )
+    tree.sub(
+        APP_UPDATE_LUA,
+        'o = s:option(ListValue, "gh_proxy_url", translate("GitHub Proxy"), translate("Use GitHub instead of proxy nodes for component updates."))',
+        'o = s:option(ListValue, "gh_proxy_url", translate("GitHub Proxy"))',
+    )
+
+    # 3. component rows first (Geoview, Sing-Box), Passwall2 last, buttons aligned
+    text = tree.text(APP_VERSION_HTM)
+    if OLD_VERSION_CSS not in text:
+        raise RuleError("%s: app-version style anchor changed" % APP_VERSION_HTM)
+    text = text.replace(OLD_VERSION_CSS, NEW_VERSION_CSS)
+
+    if TITLE_RULE not in text:
+        raise RuleError("%s: title rule anchor changed" % APP_VERSION_HTM)
+    text = text.replace(TITLE_RULE, TITLE_RULE + BOX_CSS, 1)
+
+    if PW_ROW_HEAD not in text:
+        raise RuleError("%s: Passwall2 row anchor changed" % APP_VERSION_HTM)
+    i = text.index(PW_ROW_HEAD)
+    j = text.index(LOOP_HEAD, i)
+    block = text[i:j].rstrip("\n") + "\n"
+    text = text[:i] + text[j:]
+
+    end = text.index("<%end%>") + len("<%end%>")
+    text = text[:end] + "\n\n" + block + text[end:]
+
+    if LOOP_ROW_HEAD not in text:
+        raise RuleError("%s: component row anchor changed" % APP_VERSION_HTM)
+    text = text.replace(
+        LOOP_ROW_HEAD,
+        LOOP_ROW_HEAD.replace('<div class="cbi-value">', '<div class="cbi-value app-version-row">'),
+    )
+    text = text.replace(
+        PW_ROW_HEAD,
+        PW_ROW_HEAD.replace('<div class="cbi-value">', '<div class="cbi-value app-version-row">'),
+    )
+    if "passwall2-update-box" not in text.split("</style>", 1)[-1]:
+        text = text.rstrip("\n") + "\n\n" + BOX_JS
+    tree.save(APP_VERSION_HTM, text)
+    tree.applied.append("fork_ui %s" % APP_VERSION_HTM)
+
+    # 4. readable log font, independent of the theme
+    for rel in (LOG_HTM, SERVER_LOG_HTM):
+        tree.sub(
+            rel,
+            '</script>\n<fieldset class="cbi-section" id="_log_fieldset">',
+            LOG_STYLE,
+        )
+
+
 def main():
     if len(sys.argv) != 2:
         print("usage: strip_xray.py <repo-root>", file=sys.stderr)
@@ -722,6 +897,7 @@ def main():
     rules_app_sh(tree)
     rules_meta(tree)
     rules_po(tree)
+    rules_fork_ui(tree)
     print("applied %d operations" % len(tree.applied))
     return 0
 

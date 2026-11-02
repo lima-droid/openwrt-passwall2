@@ -16,9 +16,15 @@ _M.order = {
 }
 
 -- The LuCI package has its own update flow and is not a binary component.
+-- This fork publishes its own releases, so the in-app updater must look at this
+-- repository instead of the upstream API cache.
+local FORK_RELEASES = "https://api.github.com/repos/lima-droid/openwrt-passwall2/releases/latest"
+
 _M.passwall2 = {
 	name = "PassWall2",
-	get_url = gh_release_url
+	get_url = function(self)
+		return FORK_RELEASES
+	end
 }
 
 _M["sing-box"] = {

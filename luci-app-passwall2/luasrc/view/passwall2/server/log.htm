@@ -39,6 +39,15 @@ local api = map.api
 	);
 	//]]>
 </script>
+<style>
+	/* Log output: pin font size/family so the page does not inherit an oversized
+	   textarea font from the LuCI theme. */
+	#log_textarea {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+		font-size: 12px;
+		line-height: 1.45;
+	}
+</style>
 <fieldset class="cbi-section" id="_log_fieldset">
 	<legend>
 		<%:Logs%>
