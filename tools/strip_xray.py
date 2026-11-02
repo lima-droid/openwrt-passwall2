@@ -892,32 +892,20 @@ def rules_fork_ui(tree):
     tree.save(APP_VERSION_HTM, text)
     tree.applied.append("fork_ui %s" % APP_VERSION_HTM)
 
-    # 5. "restore default config" must not resurrect nodes from the template
+    # 5. "restore default config": settings + shunt nodes from the template, no real nodes
     tree.sub(
         APP + "/luasrc/controller/passwall2.lua",
         "\tluci.sys.call('[ -f \"/usr/share/passwall2/0_default_config\" ] && "
         "cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2')\n",
-        "\t-- Restore the settings template, but never bring back the nodes it may contain:\n"
-        "\t-- resetting must not resurrect demo or old node entries.\n"
-        '\tlocal default_config = "/etc/passwall2_template.conf"\n'
-        "\tif not fs.access(default_config) then\n"
-        '\t\tdefault_config = "/usr/share/passwall2/0_default_config"\n'
-        "\tend\n"
-        "\tif fs.access(default_config) then\n"
-        "\t\tlocal out, skip = {}, false\n"
-        "\t\tfor line in io.lines(default_config) do\n"
-        '\t\t\tif line:match("^config%s+nodes") then\n'
-        "\t\t\t\tskip = true\n"
-        '\t\t\telseif line:match("^config%s") then\n'
-        "\t\t\t\tskip = false\n"
-        "\t\t\tend\n"
-        '\t\t\tif not skip and not line:match("^%s*option%s+node%s") then\n'
-        "\t\t\t\tout[#out + 1] = line\n"
-        "\t\t\tend\n"
-        "\t\tend\n"
-        '\t\tfs.writefile("/etc/config/" .. c_config, table.concat(out, "\\n") .. "\\n")\n'
-        "\tend\n",
+        "\t-- Restore the settings template: real nodes are dropped, shunt nodes are kept.\n"
+        '\tlocal restore = loadfile("/usr/share/passwall2/reset_template.lua")\n'
+        "\tif restore then restore() end\n",
     )
+    tree.save(
+        APP + "/root/usr/share/passwall2/reset_template.lua",
+        fork_file("reset_template.lua"),
+    )
+    tree.applied.append("reset_template.lua from tools/ui/reset_template.lua")
 
     # 4. readable log font, independent of the theme
     for rel in (LOG_HTM, SERVER_LOG_HTM):
