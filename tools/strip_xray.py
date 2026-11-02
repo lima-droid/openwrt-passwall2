@@ -759,13 +759,9 @@ BASE_CSS_NEW = (
 )
 
 NEW_VERSION_CSS = (
-    "\t/* Fixed label column and fixed version column: the brackets and the buttons\n"
-    "\t   line up in two clean vertical lines no matter how long the version is. */\n"
-    "\t#app_version > .app-version-row > .cbi-value-title {\n"
-    "\t\tflex: 0 0 10rem;\n"
-    "\t\twidth: 10rem;\n"
-    "\t\tmin-width: 10rem;\n"
-    "\t}\n"
+    "\t/* Keep the version rows on the theme's label column so they line up with the\n"
+    "\t   option rows below, and give the version its own fixed column so the\n"
+    "\t   brackets and the buttons line up in two clean vertical lines. */\n"
     "\t#app_version > .app-version-row > .cbi-value-field {\n"
     "\t\tflex: 1 1 auto;\n"
     "\t\tmin-width: 0;\n"
@@ -774,7 +770,7 @@ NEW_VERSION_CSS = (
     "\t#app_version .app-version-sub {\n"
     "\t\tdisplay: inline-block;\n"
     "\t\twidth: 7.5rem;\n"
-    "\t\ttext-align: right;\n"
+    "\t\ttext-align: left;\n"
     "\t\tmargin-right: .4rem;\n"
     "\t\twhite-space: nowrap;\n"
     "\t\tfont-weight: normal;\n"

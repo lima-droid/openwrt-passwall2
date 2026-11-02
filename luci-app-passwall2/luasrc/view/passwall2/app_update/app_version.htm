@@ -343,13 +343,9 @@ local com = self.com
 		margin-right: auto;
 		padding-bottom: 2.9em;
 	}
-	/* Fixed label column and fixed version column: the brackets and the buttons
-	   line up in two clean vertical lines no matter how long the version is. */
-	#app_version > .app-version-row > .cbi-value-title {
-		flex: 0 0 10rem;
-		width: 10rem;
-		min-width: 10rem;
-	}
+	/* Keep the version rows on the theme's label column so they line up with the
+	   option rows below, and give the version its own fixed column so the
+	   brackets and the buttons line up in two clean vertical lines. */
 	#app_version > .app-version-row > .cbi-value-field {
 		flex: 1 1 auto;
 		min-width: 0;
@@ -358,7 +354,7 @@ local com = self.com
 	#app_version .app-version-sub {
 		display: inline-block;
 		width: 7.5rem;
-		text-align: right;
+		text-align: left;
 		margin-right: .4rem;
 		white-space: nowrap;
 		font-weight: normal;
