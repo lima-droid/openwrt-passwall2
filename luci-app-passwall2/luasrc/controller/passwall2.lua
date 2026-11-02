@@ -143,7 +143,10 @@ function reset_config()
 	luci.sys.call('/etc/init.d/passwall2 stop')
 	-- Restore the settings template, but never bring back the nodes it may contain:
 	-- resetting must not resurrect demo or old node entries.
-	local default_config = "/usr/share/passwall2/0_default_config"
+	local default_config = "/etc/passwall2_template.conf"
+	if not fs.access(default_config) then
+		default_config = "/usr/share/passwall2/0_default_config"
+	end
 	if fs.access(default_config) then
 		local out, skip = {}, false
 		for line in io.lines(default_config) do

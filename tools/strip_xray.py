@@ -900,7 +900,10 @@ def rules_fork_ui(tree):
         "cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2')\n",
         "\t-- Restore the settings template, but never bring back the nodes it may contain:\n"
         "\t-- resetting must not resurrect demo or old node entries.\n"
-        '\tlocal default_config = "/usr/share/passwall2/0_default_config"\n'
+        '\tlocal default_config = "/etc/passwall2_template.conf"\n'
+        "\tif not fs.access(default_config) then\n"
+        '\t\tdefault_config = "/usr/share/passwall2/0_default_config"\n'
+        "\tend\n"
         "\tif fs.access(default_config) then\n"
         "\t\tlocal out, skip = {}, false\n"
         "\t\tfor line in io.lines(default_config) do\n"
