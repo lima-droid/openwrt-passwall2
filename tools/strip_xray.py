@@ -726,13 +726,45 @@ OLD_VERSION_CSS = (
     "\t}"
 )
 
+BASE_CSS_OLD = (
+    "\t#app_version > .cbi-value {\n"
+    "\t\tdisplay: flex;\n"
+    "\t\tflex-wrap: wrap;\n"
+    "\t\talign-items: center;\n"
+    "\t\tmargin-top: 0;\n"
+    "\t\tmargin-bottom: 0;\n"
+    "\t\tpadding-top: .25rem;\n"
+    "\t\tpadding-bottom: .25rem;\n"
+    "\t}\n"
+)
+
+BASE_CSS_NEW = (
+    "\t#app_version > .cbi-value {\n"
+    "\t\tdisplay: flex;\n"
+    "\t\tflex-wrap: wrap;\n"
+    "\t\talign-items: center;\n"
+    "\t\tmargin-top: 0;\n"
+    "\t\tmargin-bottom: 0;\n"
+    "\t\tpadding-top: .4rem;\n"
+    "\t\tpadding-bottom: .4rem;\n"
+    "\t}\n"
+    "\t/* argon gives .cbi-value-description a big padding and a 0.75rem font; both\n"
+    "\t   make the version row look loose and tiny */\n"
+    "\t#app_version .cbi-value-description {\n"
+    "\t\tpadding: 0;\n"
+    "\t\tfont-size: .875rem;\n"
+    "\t\tline-height: 1.4;\n"
+    "\t\tcolor: inherit;\n"
+    "\t}\n"
+)
+
 NEW_VERSION_CSS = (
-    "\t/* Fixed label column, so every \"Check update\" button starts on the same\n"
-    "\t   vertical line no matter how wide the version text next to the label is. */\n"
+    "\t/* Fixed label column and fixed version column: the brackets and the buttons\n"
+    "\t   line up in two clean vertical lines no matter how long the version is. */\n"
     "\t#app_version > .app-version-row > .cbi-value-title {\n"
-    "\t\tflex: 0 0 14rem;\n"
-    "\t\twidth: 14rem;\n"
-    "\t\tmin-width: 14rem;\n"
+    "\t\tflex: 0 0 10rem;\n"
+    "\t\twidth: 10rem;\n"
+    "\t\tmin-width: 10rem;\n"
     "\t}\n"
     "\t#app_version > .app-version-row > .cbi-value-field {\n"
     "\t\tflex: 1 1 auto;\n"
@@ -741,11 +773,41 @@ NEW_VERSION_CSS = (
     "\t}\n"
     "\t#app_version .app-version-sub {\n"
     "\t\tdisplay: inline-block;\n"
-    "\t\tmargin-left: .35rem;\n"
-    "\t\tfont-size: .95em;\n"
+    "\t\twidth: 7.5rem;\n"
+    "\t\ttext-align: right;\n"
+    "\t\tmargin-right: .4rem;\n"
+    "\t\twhite-space: nowrap;\n"
     "\t\tfont-weight: normal;\n"
-    "\t\topacity: .75;\n"
+    "\t\topacity: .85;\n"
     "\t}"
+)
+
+LOOP_LABEL_OLD = (
+    '\t<label class="cbi-value-title"><%=v.name%>\n'
+    "\t\t<%:Version%>\n"
+    '\t\t<span class="app-version-sub"><span class="com_version" key="<%=k%>"><%=translate("Null")%></span></span>\n'
+    "\t</label>\n"
+    '\t<div class="cbi-value-field">\n'
+    '\t\t<div class="cbi-value-description">\n'
+)
+LOOP_LABEL_NEW = (
+    '\t<label class="cbi-value-title"><%=v.name%> <%:Version%></label>\n'
+    '\t<div class="cbi-value-field">\n'
+    '\t\t<div class="cbi-value-description">\n'
+    '\t\t\t<span class="app-version-sub">【 <span class="com_version" key="<%=k%>"><%=translate("Null")%></span> 】</span>\n'
+)
+PW_LABEL_OLD = (
+    '\t<label class="cbi-value-title">Passwall2 <%:Version%>\n'
+    '\t\t<span class="app-version-sub"><%=api.get_version()%></span>\n'
+    "\t</label>\n"
+    '\t<div class="cbi-value-field">\n'
+    '\t\t<div class="cbi-value-description">\n'
+)
+PW_LABEL_NEW = (
+    '\t<label class="cbi-value-title">Passwall2 <%:Version%></label>\n'
+    '\t<div class="cbi-value-field">\n'
+    '\t\t<div class="cbi-value-description">\n'
+    '\t\t\t<span class="app-version-sub">【 <%=api.get_version()%> 】</span>\n'
 )
 
 PW_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title">Passwall2 <%:Version%>'
@@ -838,6 +900,10 @@ def rules_fork_ui(tree):
 
     # 3. component rows first (Geoview, Sing-Box), Passwall2 last, buttons aligned
     text = tree.text(APP_VERSION_HTM)
+    if BASE_CSS_OLD not in text:
+        raise RuleError("%s: base cbi-value style anchor changed" % APP_VERSION_HTM)
+    text = text.replace(BASE_CSS_OLD, BASE_CSS_NEW, 1)
+
     if OLD_VERSION_CSS not in text:
         raise RuleError("%s: app-version style anchor changed" % APP_VERSION_HTM)
     text = text.replace(OLD_VERSION_CSS, NEW_VERSION_CSS)
@@ -866,6 +932,14 @@ def rules_fork_ui(tree):
         PW_ROW_HEAD,
         PW_ROW_HEAD.replace('<div class="cbi-value">', '<div class="cbi-value app-version-row">'),
     )
+
+    # move the version text into its own fixed, right-aligned column with 【 】,
+    # matching the upstream release layout the user is used to
+    for old, new in ((LOOP_LABEL_OLD, LOOP_LABEL_NEW), (PW_LABEL_OLD, PW_LABEL_NEW)):
+        if old not in text:
+            raise RuleError("%s: version row anchor changed: %r" % (APP_VERSION_HTM, old[:40]))
+        text = text.replace(old, new, 1)
+
     if "passwall2-update-box" not in text.split("</style>", 1)[-1]:
         text = text.rstrip("\n") + "\n\n" + BOX_JS
     tree.save(APP_VERSION_HTM, text)
