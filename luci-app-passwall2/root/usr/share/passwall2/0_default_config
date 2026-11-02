@@ -6,7 +6,6 @@ config global
 	option client_proxy '1'
 	option socks_enabled '0'
 	option acl_enable '0'
-	option node 'rulenode'
 	option direct_dns_protocol 'auto'
 	option direct_dns_query_strategy 'UseIP'
 	option remote_dns_protocol 'tcp'
@@ -51,28 +50,6 @@ config global_subscribe
 	option filter_keyword_mode '1'
 
 config global_singbox
-
-config nodes 'examplenode'
-	option remarks 'Example'
-	option type 'sing-box'
-	option protocol 'socks'
-	option address 'passwall2.github'
-	option port '1080'
-	option tls '0'
-	option transport 'raw'
-	option tcp_guise 'none'
-	option tcp_fast_open '0'
-	option tcpMptcp '0'
-
-config nodes 'rulenode'
-	option remarks 'rulenode'
-	option type 'sing-box'
-	option protocol '_shunt'
-	option PrivateIP '_direct'
-	option default_node 'examplenode'
-	option write_ipset_direct '1'
-	option enable_geoview_ip '1'
-	option shunt_group 'CN'
 
 config shunt_rules 'DirectFront'
 	option remarks 'DirectFront'

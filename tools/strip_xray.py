@@ -681,11 +681,17 @@ def rules_meta(tree):
         "",
     )
 
-    # default uci config
+    # default uci config: settings template only, no demo nodes
     tree.sub(DEFAULT_CFG, "config global_xray\n\toption sniffing_override_dest '0'\n\n", "")
     tree.drop_lines(DEFAULT_CFG, r"^\toption xray_file '/usr/bin/xray'$", 1)
-    tree.sub(DEFAULT_CFG, "\toption type 'Xray'", "\toption type 'sing-box'", count=2)
-    tree.drop_lines(DEFAULT_CFG, r"^\toption (domainStrategy|domainMatcher) ", 2)
+    tree.resub(
+        DEFAULT_CFG,
+        r"config nodes 'examplenode'.*?\n\n(?=config shunt_rules 'DirectFront')",
+        "",
+        expect=1,
+        flags=re.S,
+    )
+    tree.drop_lines(DEFAULT_CFG, r"^\toption node 'rulenode'$", 1)
 
     # README
     tree.drop_lines(
@@ -886,6 +892,30 @@ def rules_fork_ui(tree):
         text = text.rstrip("\n") + "\n\n" + BOX_JS
     tree.save(APP_VERSION_HTM, text)
     tree.applied.append("fork_ui %s" % APP_VERSION_HTM)
+
+    # 5. "restore default config" must not resurrect nodes from the template
+    tree.sub(
+        APP + "/luasrc/controller/passwall2.lua",
+        "\tluci.sys.call('[ -f \"/usr/share/passwall2/0_default_config\" ] && "
+        "cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2')\n",
+        "\t-- Restore the settings template, but never bring back the nodes it may contain:\n"
+        "\t-- resetting must not resurrect demo or old node entries.\n"
+        '\tlocal default_config = "/usr/share/passwall2/0_default_config"\n'
+        "\tif fs.access(default_config) then\n"
+        "\t\tlocal out, skip = {}, false\n"
+        "\t\tfor line in io.lines(default_config) do\n"
+        '\t\t\tif line:match("^config%s+nodes") then\n'
+        "\t\t\t\tskip = true\n"
+        '\t\t\telseif line:match("^config%s") then\n'
+        "\t\t\t\tskip = false\n"
+        "\t\t\tend\n"
+        '\t\t\tif not skip and not line:match("^%s*option%s+node%s") then\n'
+        "\t\t\t\tout[#out + 1] = line\n"
+        "\t\t\tend\n"
+        "\t\tend\n"
+        '\t\tfs.writefile(c_config, table.concat(out, "\\n") .. "\\n")\n'
+        "\tend\n",
+    )
 
     # 4. readable log font, independent of the theme
     for rel in (LOG_HTM, SERVER_LOG_HTM):

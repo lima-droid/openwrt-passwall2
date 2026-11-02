@@ -141,7 +141,23 @@ function reset_config()
 	uci:revert(c_config)
 	luci.sys.call("echo '' > /tmp/log/passwall2.log")
 	luci.sys.call('/etc/init.d/passwall2 stop')
-	luci.sys.call('[ -f "/usr/share/passwall2/0_default_config" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2')
+	-- Restore the settings template, but never bring back the nodes it may contain:
+	-- resetting must not resurrect demo or old node entries.
+	local default_config = "/usr/share/passwall2/0_default_config"
+	if fs.access(default_config) then
+		local out, skip = {}, false
+		for line in io.lines(default_config) do
+			if line:match("^config%s+nodes") then
+				skip = true
+			elseif line:match("^config%s") then
+				skip = false
+			end
+			if not skip and not line:match("^%s*option%s+node%s") then
+				out[#out + 1] = line
+			end
+		end
+		fs.writefile(c_config, table.concat(out, "\n") .. "\n")
+	end
 	http.redirect(api.url())
 end
 
