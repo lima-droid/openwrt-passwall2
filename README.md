@@ -1,221 +1,65 @@
-# PassWall2
+# PassWall2 · sing-box only (Xray removed)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-21.02%2B-blue)](https://openwrt.org/)
-[![LuCI](https://img.shields.io/badge/LuCI-17.01%2B-green)](https://github.com/openwrt/luci)
 
-PassWall2 is a powerful LuCI web interface application for OpenWrt that provides advanced proxy functionality. It's a comprehensive solution for network traffic management, proxy services, and access control on OpenWrt-based routers.
+个人自用的 [PassWall2](https://github.com/Openwrt-Passwall/openwrt-passwall2) 复刻：**剔除 Xray**，
+代理核心只保留 sing-box / Shadowsocks-Rust / ShadowsocksR，其余功能与上游一致，并且每天自动跟随上游更新。
 
-## 🛠️ Installation
+A personal fork of [Openwrt-Passwall/openwrt-passwall2](https://github.com/Openwrt-Passwall/openwrt-passwall2)
+with **all Xray support removed**; everything else tracks upstream and is re-synced daily.
 
-### ⚠️ Pre-installation
+## 与上游的区别
 
-```bash
-# find it in releases,base of your router Arch
-```
-**Visit [GitHub Releases](https://github.com/Openwrt-Passwall/openwrt-passwall2/releases/latest) to download the correct package for your system.**
+| 项目 | 说明 |
+| --- | --- |
+| Xray | 组件、客户端/服务端节点类型、`util_xray.lua`、`run_xray()`、`xray-core` 依赖全部删除，全仓无 `xray` 代码 |
+| 组件更新页 | 顺序 Geoview → Sing-Box → Passwall2，`【 版本 】` 列、按钮与标签对齐、表单居中、小号按钮；删掉 `/tmp` 红字提示与反向代理说明 |
+| 自更新地址 | Passwall2 的「检查更新」指向本仓库的 releases |
+| 日志 | 运行日志固定 13px 等宽字体，不随主题变化 |
+| 默认配置 | 随包附带一份实机模板（DNS/转发/分流规则齐全，**不含真实节点**，保留「精准分流」分流节点） |
+| 恢复默认配置 | 用上面这份模板重写配置：保留设置与分流节点，丢弃真实节点，复位后需手动启动服务 |
 
-Choose the package format based on your **router's OpenWrt package manager**:
+细节见 [FORK-NOTES.md](FORK-NOTES.md)。
 
-### For OpenWrt with OPKG 
+## 安装
 
-1. **Download the IPK package** from the releases page  
-   Look for `luci-app-passwall2_{VERSION}_all.ipk` in the Assets section.  
-   > **Note:** If you need localization (Chinese/Persian), download the corresponding language package as well (e.g., `luci-i18n-passwall2-zh-cn...` or `...-fa...`).
+从 [Releases](../../releases/latest) 下载与路由器架构对应的包。
 
-2. **Upload to your router** (via SCP, LuCI upload, or wget):
-   ```bash
-   # Replace {VERSION} with the actual version (e.g., 26.2.5-1)
-   wget https://github.com/Openwrt-Passwall/openwrt-passwall2/releases/download/{VERSION}/luci-app-passwall2_{VERSION}_all.ipk
-   ```
-
-3. **Install:**
-   ```bash
-   opkg update
-   opkg install luci-app-passwall2_*.ipk
-   ```
-   
-
-### For OpenWrt with APK 
-
-1. **Download the APK package** from the releases page  
-   Look for `luci-app-passwall2_{VERSION}_all.apk` in the Assets section.
-   > **Note:** If you need localization (Chinese/Persian), download the corresponding language package as well (e.g., `luci-i18n-passwall2-zh-cn...` or `...-fa...`).
-
-2. **Upload to your router** (via SCP, LuCI upload, or wget):
-   ```bash
-   # Replace {VERSION} with the actual version (e.g., 26.2.5-1)
-   wget https://github.com/Openwrt-Passwall/openwrt-passwall2/releases/download/{VERSION}/luci-app-passwall2_{VERSION}_all.apk
-   ```
-
-3. **Install:**
-   ```bash
-   apk add --allow-untrusted luci-app-passwall2_*.apk
-   ```
-   
-   > ⚠️ **Security Note:** `--allow-untrusted` bypasses package signature verification. 
-
-> **How to check your package manager:** Run `opkg --version` or `apk --version` to see which one your router uses.
-
-### Restart LuCI
-```bash
-/etc/init.d/rpcd restart
-```
-
-### 🧩 Add PassWall2 APK repository (recommended)
-**Instead of installing .apk packages manually**, you can add the PassWall2 APK repository and signing key to enable installation and updates via apk.
-
-1. Add repository signing key
+**opkg（OpenWrt 23.05 及更早 / iStoreOS）**
 
 ```bash
-wget -O passwall.pub https://sourceforge.net/projects/openwrt-passwall-build/files/apk.pub
-mv passwall.pub /etc/apk/keys/
+opkg update
+opkg install luci-app-passwall2_<版本>_all.ipk
+# 需要中文界面再装：luci-i18n-passwall2-zh-cn_<版本>_all.ipk
 ```
 
-2. Add PassWall2 repositories
+**apk（OpenWrt 24.10+）**
 
 ```bash
-. /etc/openwrt_release
-
-release="${DISTRIB_RELEASE%.*}"
-arch="$DISTRIB_ARCH"
-
-wget -O /etc/apk/keys/passwall.pub \
-  https://sourceforge.net/projects/openwrt-passwall-build/files/apk.pub
-
-cat >> /etc/apk/repositories.d/customfeeds.list <<EOF
-https://sourceforge.net/projects/openwrt-passwall-build/files/releases/packages-${release}/${arch}/passwall_packages/packages.adb
-https://sourceforge.net/projects/openwrt-passwall-build/files/releases/packages-${release}/${arch}/passwall_luci/packages.adb
-https://sourceforge.net/projects/openwrt-passwall-build/files/releases/packages-${release}/${arch}/passwall2/packages.adb
-EOF
+apk add --allow-untrusted luci-app-passwall2-<版本>-r1.apk
+# 语言包：luci-i18n-passwall2-zh-cn-<版本>.apk
 ```
 
-3. Update package index
+装完刷新 LuCI（或 `/etc/init.d/uhttpd restart`）。首次安装的配置就是上面那份默认模板。
 
-```bash
-apk update
+## 协议支持
+
+Hysteria2、TUIC、AnyTLS、WireGuard、SSH、VMess、VLESS、Trojan、Shadowsocks、ShadowsocksR
+均通过 sing-box / SS-Rust / SSR 提供；Xray 专属的 xhttp、mkcp 等传输方式随 Xray 一起移除。
+
+## 自动同步上游
+
+本仓库不是用 merge 跟随上游，而是每次从上游原始树重新生成（见 `tools/strip_xray.py`）：
+
+```
+上游 main → strip_xray.py（带断言的重写）→ check_tree.py（无 xray / Lua 语法 / JSON）→ 提交
 ```
 
-4. Install optional dependency packages (depending on your configuration) and PassWall2 from repository
+`.github/workflows/sync-upstream.yml` 每天 03:17 UTC 跑一次；上游改动导致某条规则失效时，
+它不会破坏仓库，而是开一个 `sync-failure` issue 说明是哪条规则、哪个文件需要更新。
 
-```bash
-apk add tcping geoview # add other dependencies
+## 许可
 
-apk add luci-app-passwall2
-```
-
-
-## 📋 System Requirements
-
-### OpenWrt Version
-- OpenWrt 21.02 or later
-- LuCI 17.01 or later
-
-### Hardware Requirements
-- **Minimum 256MB RAM**
-- Sufficient storage for packages (varies by protocol selection)
-
-### Core Dependencies
-The following packages should be resolved automatically by the package manager (if available in your feeds):
-
-- `coreutils`, `coreutils-base64`, `coreutils-nohup`
-- `curl`, `ip-full`, `libuci-lua`, `lua`, `luci-compat`, `luci-lib-jsonc`
-- `resolveip`, `tcping`, `unzip`
-- `geoview`, `v2ray-geoip`, `v2ray-geosite` (geo-routing data)
-
-> **Note:** Actual dependencies may vary based on selected features and your OpenWrt build. Ensure you have the necessary feeds configured.
-
-### Optional Protocol Packages
-Selected during installation based on your needs:
-- Sing-Box
-- Shadowsocks-Rust
-- ShadowsocksR
-- HAProxy
-
-## 🚀 Features
-
-### Multi-Protocol Support
-- **Sing-Box** (HTTP, Socks, SSH, Shadowsocks, VMess, VLESS, Trojan, TUIC, Hysteria, Hysteria2, WireGuard, AnyTLS)
-- **Shadowsocks-Rust**
-- **ShadowsocksR** legacy support
-- **HAProxy** The Reliable, High Performance TCP/HTTP Load Balancer
-
-### Traffic Management
-- **Load Balancing**: Distribute traffic across multiple nodes
-- **Smart Routing**: Domain-based and geo-based routing rules
-- **DNS Control**: Advanced DNS filtering and DoH/DoT support
-- **Transparent Proxy**: Seamless network-wide proxy
-
-### Node Management
-- **Subscription Support**: Import nodes from subscription URLs
-- **Node Testing**: Built-in latency and connectivity testing
-- **Failover Support**: Automatic failover to backup nodes
-- **QR Code**: Generate and scan QR codes for node sharing
-
-### Access Control
-- **Per-Device Rules**: Configure proxy settings per device
-- **Domain/IP Filtering**: Whitelist/blacklist support
-- **Time-based Rules**: Schedule proxy usage
-
-## ⚙️ Configuration
-
-### Basic Setup
-
-1. **Access LuCI Interface:**
-   - Navigate to `Services` → `PassWall2`
-
-2. **Add Your First Node:**
-   - Go to `Node List` → `Add Node`
-   - Select protocol and fill in server details
-
-3. **Configure Basic Settings:**
-   - Select your default node
-   - Configure DNS settings
-   - Enable transparent proxy
-
-4. **Apply Configuration:**
-   - Click `Save & Apply`
-
-## 🌐 Language Support
-
-PassWall2 supports multiple languages:
-- 🇨🇳 Chinese (Simplified/Traditional)
-- 🇮🇷 Persian (فارسی)
-
-Language files are organized in `luci-app-passwall2/po/` subdirectories.
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Service Won't Start**
-```bash
-logread | grep passwall2
-```
-Check system logs, verify node configuration, and ensure required packages are installed.
-
-**DNS Issues**
-- Disable built-in DNS in browsers (Chrome: Settings → Privacy → Security → Disable "Use secure DNS")
-- Clear DNS cache after reboot: `ipconfig /flushdns` (Windows) or toggle airplane mode (mobile)
-
-**Connection Problems**
-- Test node connectivity
-- Check firewall rules
-- Verify transparent proxy settings
-
-### Debug Mode
-
-Enable debug logging in `Other Settings` and check:
-- Main log: `/tmp/log/passwall2.log`
-- Server log: `/tmp/log/passwall2_server.log`
-
-## 📄 License
-
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
-**Note**: This software is intended for legal use only. Users are responsible for complying with all applicable laws and regulations in their jurisdiction.
-
----
-
-## Stargazers over time
-[![Stargazers over time](https://starchart.cc/Openwrt-Passwall/openwrt-passwall2.svg?variant=adaptive)](https://starchart.cc/Openwrt-Passwall/openwrt-passwall2)
+GPL-3.0，与上游一致。所有上游版权声明均保留，代码版权归
+[Openwrt-Passwall](https://github.com/Openwrt-Passwall/openwrt-passwall2) 及原作者所有。

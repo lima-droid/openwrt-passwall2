@@ -685,14 +685,8 @@ def rules_meta(tree):
     tree.save(DEFAULT_CFG, fork_file("0_default_config"))
     tree.applied.append("default_config from tools/ui/0_default_config")
 
-    # README
-    tree.drop_lines(
-        "README.md",
-        r"^   > If installation fails due to missing dependencies \(e\.g\., `xray-core`\)",
-        1,
-    )
-    tree.drop_lines("README.md", r"^- Xray$", 1)
-    tree.drop_lines("README.md", r"^- \*\*Xray\*\* ", 1)
+    # README: the fork has its own (kept in tools/ui/README.md)
+    tree.save("README.md", fork_file("README.md"))
 
     # CI package list
     tree.sub(WORKFLOW, " v2ray-plugin xray-core", " v2ray-plugin", count=2)
