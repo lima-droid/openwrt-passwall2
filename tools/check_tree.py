@@ -22,12 +22,28 @@ except ImportError:  # pragma: no cover
 
 BAD = []
 
+# The fork's own tooling describes what it removes, so it is not part of the tree being
+# checked. CI runs this against a plain upstream clone, where these paths do not exist.
+IGNORE = (
+    "tools/",
+    "FORK-NOTES.md",
+    ".github/workflows/sync-upstream.yml",
+)
+
+
+def ignored(path):
+    p = path.replace(os.sep, "/")
+    return any(part in p for part in IGNORE)
+
 
 def walk(root):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d != ".git"]
         for name in filenames:
-            yield os.path.join(dirpath, name)
+            path = os.path.join(dirpath, name)
+            if ignored(path):
+                continue
+            yield path
 
 
 def check_no_xray(root):
