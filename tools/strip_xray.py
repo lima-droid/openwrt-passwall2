@@ -807,7 +807,7 @@ LOG_STYLE = """</script>
 	   textarea font from the LuCI theme. */
 	#log_textarea {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-		font-size: 12px;
+		font-size: 13px;
 		line-height: 1.45;
 	}
 </style>
