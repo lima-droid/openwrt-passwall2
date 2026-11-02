@@ -372,6 +372,14 @@ local com = self.com
 		flex: 1 1 auto;
 		min-width: 0;
 	}
+	/* the check-update buttons only need to be small, the theme makes them 2.5rem tall */
+	#app_version .app-version-row .btn {
+		height: auto;
+		min-height: 0;
+		padding: .2rem .55rem;
+		font-size: .8125rem;
+		line-height: 1.4;
+	}
 </style>
 
 <%for _, k in ipairs(com.order) do
