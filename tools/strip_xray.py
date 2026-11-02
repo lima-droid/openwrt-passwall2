@@ -681,17 +681,9 @@ def rules_meta(tree):
         "",
     )
 
-    # default uci config: settings template only, no demo nodes
-    tree.sub(DEFAULT_CFG, "config global_xray\n\toption sniffing_override_dest '0'\n\n", "")
-    tree.drop_lines(DEFAULT_CFG, r"^\toption xray_file '/usr/bin/xray'$", 1)
-    tree.resub(
-        DEFAULT_CFG,
-        r"config nodes 'examplenode'.*?\n\n(?=config shunt_rules 'DirectFront')",
-        "",
-        expect=1,
-        flags=re.S,
-    )
-    tree.drop_lines(DEFAULT_CFG, r"^\toption node 'rulenode'$", 1)
+    # default uci config: the fork ships its own settings template (no nodes at all)
+    tree.save(DEFAULT_CFG, fork_file("0_default_config"))
+    tree.applied.append("default_config from tools/ui/0_default_config")
 
     # README
     tree.drop_lines(
@@ -755,6 +747,13 @@ def fork_style_block():
     with open(CSS_FILE, encoding="utf-8") as f:
         css = f.read()
     return css.strip("\n")
+
+
+def fork_file(name):
+    """A file the fork owns verbatim, kept in tools/ui/."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", name)
+    with open(path, encoding="utf-8") as f:
+        return f.read()
 
 
 PW_ROW_HEAD = '<div class="cbi-value">\n\t<label class="cbi-value-title">Passwall2 <%:Version%>'

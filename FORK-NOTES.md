@@ -26,10 +26,16 @@ keep working through sing-box — these are sing-box features, not Xray ones.
 
 Applied by `tools/strip_xray.py` (`rules_fork_ui`), so they survive every sync:
 
+- **Default config** (`root/usr/share/passwall2/0_default_config`)
+  - the fork ships its own settings template (kept in `tools/ui/0_default_config`),
+    taken from a real working config and stripped of every node entry
+  - `reset_config` restores that template but filters out `config nodes` blocks and
+    `option node` lines, and prefers `/etc/passwall2_template.conf` when present
+    (so a device-local template survives package upgrades)
 - **Component update page** (`app_update.lua`, `app_version.htm`)
   - rows ordered Geoview → Sing-Box → Passwall2, Xray row gone
   - fixed label column, so all "Check update" buttons line up
-  - form centred in a 46rem column, two blank lines of padding at the bottom
+  - form centred in a 40rem column, two blank lines of padding at the bottom
   - the "run from /tmp" red hint and the GitHub-proxy description removed
   - Passwall2 update check points at `lima-droid/openwrt-passwall2` releases
 - **Log pages** (`log/log.htm`, `server/log.htm`)

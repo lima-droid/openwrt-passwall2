@@ -1,39 +1,44 @@
 
 config global
-	option enabled '0'
-	option node_socks_port '1070'
+	option enabled '1'
 	option localhost_proxy '1'
 	option client_proxy '1'
 	option socks_enabled '0'
 	option acl_enable '0'
-	option direct_dns_protocol 'auto'
 	option direct_dns_query_strategy 'UseIP'
-	option remote_dns_protocol 'tcp'
-	option remote_dns '1.1.1.1'
-	option remote_dns_query_strategy 'UseIPv4'
+	option remote_dns_protocol 'doh'
+	option remote_dns_query_strategy 'UseIP'
 	option dns_hosts 'cloudflare-dns.com 1.1.1.1
 dns.google.com 8.8.8.8'
 	option log_node '1'
 	option loglevel 'error'
+	option auto_lang 'zh_cn'
+	option remote_dns_detour 'remote'
+	option dns_redirect '1'
+	option remote_dns_doh 'https://1.1.1.1/dns-query'
+	option node_socks_port '1070'
+	option remote_rewrite_ttl '30'
+	option node_socks_bind_local '0'
 
 config global_haproxy
 	option balancing_enable '0'
 
 config global_delay
 	option start_daemon '1'
-	option start_delay '60'
+	option start_delay '30'
 
 config global_forwarding
 	option tcp_redir_ports '1:65535'
 	option udp_redir_ports '1:65535'
 	option accept_icmp '0'
 	option prefer_nft '1'
-	option tcp_proxy_way 'redirect'
-	option ipv6_tproxy '0'
+	option tcp_proxy_way 'tproxy'
+	option ipv6_tproxy '1'
+	option accept_icmpv6 '0'
 
 config global_other
-	option auto_detection_time 'tcping'
-	option show_node_info '0'
+	option auto_detection_time 'icmp'
+	option url_test_url 'https://cp.cloudflare.com/'
 
 config global_rules
 	option geosite_update '1'
@@ -41,6 +46,8 @@ config global_rules
 	option v2ray_location_asset '/usr/share/v2ray/'
 	option geoip_url 'https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat'
 	option geosite_url 'https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat'
+	option update_week_mode '7'
+	option update_time_mode '5:00'
 
 config global_app
 	option geoview_file '/usr/bin/geoview'
@@ -48,25 +55,33 @@ config global_app
 
 config global_subscribe
 	option filter_keyword_mode '1'
+	option trojan_type 'sing-box'
+	option vmess_type 'sing-box'
+	option vless_type 'sing-box'
+	option hysteria2_type 'sing-box'
 
 config global_singbox
+	option record_fragment '0'
+	option fragment '0'
 
 config shunt_rules 'DirectFront'
-	option remarks 'DirectFront'
+	option remarks '前置直连'
 	option network 'tcp,udp'
-	option domain_list 'domain:ip233.cn'
-	option group 'CN'
+	option domain_list 'domain:ip233.cn
+ipinfo.io
+'
+	option group 'China'
 
 config shunt_rules 'ProxyFront'
-	option remarks 'ProxyFront'
+	option remarks '前置代理'
 	option network 'tcp,udp'
 	option domain_list 'domain:www.gstatic.com
 domain:ssl.gstatic.com
 domain:fonts.gstatic.com'
-	option group 'CN'
+	option group 'China'
 
 config shunt_rules 'DirectGame'
-	option remarks 'DirectGame'
+	option remarks '游戏直连'
 	option domain_list '# steam直连域名获取国内CDN走国内线路下载
 cm.steampowered.com
 steamserver.net
@@ -117,10 +132,10 @@ geosite:category-games@cn'
 208.78.164.0/22
 205.185.194.0/24'
 	option network 'tcp,udp'
-	option group 'CN'
+	option group 'China'
 
 config shunt_rules 'ProxyGame'
-	option remarks 'ProxyGame'
+	option remarks '游戏代理'
 	option domain_list '# steam 商店/客服/聊天/网页布局/API/二维码/Google云同步 代理URL
 steamcommunity.com
 www.steamcommunity.com
@@ -163,37 +178,12 @@ steamcloud-eu.storage.googleapis.com
 domain:blizzard.com
 geosite:category-games'
 	option network 'tcp,udp'
-	option group 'CN'
+	option group 'China'
 
-config shunt_rules 'CN'
-	option remarks 'CN'
+config shunt_rules 'DirectChina'
+	option remarks '中国直连'
 	option domain_list 'geosite:cn'
 	option ip_list 'geoip:cn'
 	option network 'tcp,udp'
-	option group 'CN'
-
-config shunt_rules 'Iran'
-	option remarks 'Iran'
-	option network 'tcp,udp'
-	option domain_list 'geosite:ir
-#rule-set:remote:https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-ir.srs'
-	option ip_list 'geoip:ir
-#rule-set:remote:https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geoip-ir.srs'
-	option group 'IR'
-
-config shunt_rules 'Russia_Block'
-	option remarks 'Russia_Block'
-	option network 'tcp,udp'
-	option domain_list 'geosite:ru-blocked
-#rule-set:remote:https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/refs/heads/release/sing-box/rule-set-geosite/geosite-ru-blocked.srs'
-	option ip_list 'geoip:ru-blocked
-#rule-set:remote:https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/refs/heads/release/sing-box/rule-set-geoip/geoip-ru-blocked.srs'
-	option group 'RU'
-
-config shunt_rules 'Russia'
-	option remarks 'Russia'
-	option network 'tcp,udp'
-	option ip_list 'geoip:ru
-#rule-set:remote:https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/refs/heads/release/sing-box/rule-set-geoip/geoip-ru.srs'
-	option group 'RU'
+	option group 'China'
 
