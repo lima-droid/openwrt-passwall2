@@ -166,11 +166,13 @@ download_file() {
 http_ok() {
 	url="$1"
 	if command -v curl >/dev/null 2>&1; then
-		code=$(curl -sIL --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)
-		case "$code" in 200|206|302) return 0 ;; esac
-		# 部分 CDN 对 HEAD 不友好，用 Range GET 再确认一次
-		code=$(curl -sL -r 0-0 --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)
-		case "$code" in 200|206|302) return 0 ;; esac
+		for u in $(mirror_urls "$url"); do
+			code=$(curl -sIL --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "$u" 2>/dev/null || true)
+			case "$code" in 200|206|302) return 0 ;; esac
+			# 部分 CDN 对 HEAD 不友好，用 Range GET 再确认一次
+			code=$(curl -sL -r 0-0 --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "$u" 2>/dev/null || true)
+			case "$code" in 200|206|302) return 0 ;; esac
+		done
 		return 1
 	fi
 	return 0
