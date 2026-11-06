@@ -49,6 +49,17 @@ opkg / APK，补装缺失依赖（tcping、geoview、v2ray-geoip、v2ray-geosite
 curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh | sh -s -- --check
 ```
 
+如果 `raw.githubusercontent.com` 报 `TLS connect error`，换 CDN 或加速镜像取脚本（内容一样）：
+
+```bash
+sh -c "$(curl -fsSL https://cdn.jsdelivr.net/gh/lima-droid/openwrt-passwall2@main/install.sh)"
+sh -c "$(curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh)"
+```
+
+脚本内部下载 release 资产时也会自动在 `github.com` → `gh-proxy.com` → `ghfast.top` 之间回退。
+如果上一次安装被中断留下锁，再跑会提示「已有另一个任务」；确认没有任务在跑后执行
+`sh install.sh --unlock` 清掉即可（脚本也会自动识别失效的锁）。
+
 **手动安装**
 
 从 [Releases](../../releases/latest) 下载与路由器架构对应的包。

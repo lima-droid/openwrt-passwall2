@@ -10,6 +10,7 @@
 #   sh install.sh --check         # 只检查（查版本、验证资源可下载），不安装
 #   sh install.sh --version TAG   # 安装指定版本，例如 --version 26.11.3-1
 #   sh install.sh --force         # 版本相同也重装
+#   sh install.sh --unlock        # 清理残留的安装锁
 #   sh install.sh --uninstall     # 卸载（保留 /etc/config/passwall2）
 #   sh install.sh --purge         # 卸载并删除配置
 #   sh install.sh --help          # 显示说明
@@ -44,13 +45,14 @@ usage() {
   sh install.sh --check         # 只检查，不安装
   sh install.sh --version TAG   # 安装指定版本（如 26.11.3-1）
   sh install.sh --force         # 已是最新也重装
+  sh install.sh --unlock        # 清理残留的安装锁
   sh install.sh --uninstall     # 卸载（保留配置）
   sh install.sh --purge         # 卸载并删除配置
 EOF
 }
 
 cleanup() {
-	rmdir "$LOCKDIR" 2>/dev/null || true
+	rm -rf "$LOCKDIR" 2>/dev/null || true
 	for f in $TMPFILES; do
 		rm -f "$f" 2>/dev/null || true
 	done
@@ -68,6 +70,7 @@ while [ "$#" -gt 0 ]; do
 			shift
 			;;
 		--force) FORCE=1 ;;
+		--unlock) MODE="unlock" ;;
 		--uninstall) MODE="uninstall" ;;
 		--purge) MODE="purge" ;;
 		-h|--help) usage; exit 0 ;;
@@ -130,16 +133,33 @@ refresh_luci() {
 }
 
 # ---------- 下载 ----------
+# 国内直连 raw.githubusercontent / releases 偶尔 TLS 断流，按顺序换镜像重试
+mirror_urls() {
+	url="$1"
+	printf '%s\n' "$url"
+	case "$url" in
+		https://github.com/*|https://raw.githubusercontent.com/*)
+			printf '%s\n' "https://gh-proxy.com/$url"
+			printf '%s\n' "https://ghfast.top/$url"
+			;;
+		https://api.github.com/*)
+			printf '%s\n' "https://gh-proxy.com/$url"
+			;;
+	esac
+}
+
 download_file() {
 	url="$1"; out="$2"
-	if command -v curl >/dev/null 2>&1; then
-		curl -fsSL --retry 3 --connect-timeout 15 "$url" -o "$out" 2>/dev/null && return 0
-		curl -fsSL --retry 2 --connect-timeout 15 -k "$url" -o "$out" 2>/dev/null && return 0
-	fi
-	if command -v wget >/dev/null 2>&1; then
-		wget -qO "$out" "$url" 2>/dev/null && return 0
-		wget -qO "$out" --no-check-certificate "$url" 2>/dev/null && return 0
-	fi
+	for u in $(mirror_urls "$url"); do
+		if command -v curl >/dev/null 2>&1; then
+			curl -fsSL --retry 2 --connect-timeout 15 "$u" -o "$out" 2>/dev/null && return 0
+			curl -fsSL --retry 1 --connect-timeout 15 -k "$u" -o "$out" 2>/dev/null && return 0
+		fi
+		if command -v wget >/dev/null 2>&1; then
+			wget -qO "$out" "$u" 2>/dev/null && return 0
+			wget -qO "$out" --no-check-certificate "$u" 2>/dev/null && return 0
+		fi
+	done
 	return 1
 }
 
@@ -339,8 +359,30 @@ do_uninstall() {
 }
 
 # ---------- 主流程 ----------
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-	die "已有另一个 PassWall2 任务正在运行（$LOCKDIR）"
+acquire_lock() {
+	if mkdir "$LOCKDIR" 2>/dev/null; then
+		echo $$ > "$LOCKDIR/pid"
+		return 0
+	fi
+	old_pid="$(cat "$LOCKDIR/pid" 2>/dev/null || true)"
+	if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+		return 1
+	fi
+	warn "清理残留锁（进程 ${old_pid:-未知} 已不存在）"
+	rm -rf "$LOCKDIR"
+	mkdir "$LOCKDIR" 2>/dev/null || return 1
+	echo $$ > "$LOCKDIR/pid"
+	return 0
+}
+
+if [ "$MODE" = "unlock" ]; then
+	rm -rf "$LOCKDIR"
+	log "已清理锁: $LOCKDIR"
+	exit 0
+fi
+
+if ! acquire_lock; then
+	die "已有另一个 PassWall2 任务正在运行（$LOCKDIR）；确认没有在跑后可用 --unlock 清理"
 fi
 
 case "$MODE" in
