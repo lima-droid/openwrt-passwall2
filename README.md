@@ -27,8 +27,11 @@ with **all Xray support removed**; everything else tracks upstream and is re-syn
 **一键安装 / 更新**
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh)"
+curl -fsSL --retry 3 -o /tmp/pw2.sh https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh && sh /tmp/pw2.sh
 ```
+
+也可以直接 `sh -c "$(curl -fsSL ...)"`，但网络抖动时上面这种「先下载再执行」的写法会明确报
+`下载失败`，而不是静默什么都不做。
 
 脚本只做一件事：从本仓库最新 release 取 `luci-app-passwall2` 和中文语言包装上。它会自动识别
 opkg / APK，补装缺失依赖（tcping、geoview、v2ray-geoip、v2ray-geosite），并且**不会改动**
@@ -40,6 +43,7 @@ opkg / APK，补装缺失依赖（tcping、geoview、v2ray-geoip、v2ray-geosite
 | `--check` | 只检查版本、验证包可下载，不安装 |
 | `--version 26.11.3-1` | 安装指定版本 |
 | `--force` | 已是最新也重装 |
+| `--unlock` | 清理残留的安装锁 |
 | `--uninstall` | 卸载（保留配置） |
 | `--purge` | 卸载并删除配置 |
 
@@ -49,16 +53,15 @@ opkg / APK，补装缺失依赖（tcping、geoview、v2ray-geoip、v2ray-geosite
 curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh | sh -s -- --check
 ```
 
-如果 `raw.githubusercontent.com` 报 `TLS connect error`，换 CDN 或加速镜像取脚本（内容一样）：
+如果 `raw.githubusercontent.com` 报 `TLS connect error`，换镜像取同一份脚本：
 
 ```bash
-sh -c "$(curl -fsSL https://cdn.jsdelivr.net/gh/lima-droid/openwrt-passwall2@main/install.sh)"
-sh -c "$(curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh)"
+curl -fsSL -o /tmp/pw2.sh https://gh-proxy.com/https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh
+sh /tmp/pw2.sh
 ```
 
 脚本内部下载 release 资产时也会自动在 `github.com` → `gh-proxy.com` → `ghfast.top` 之间回退。
-如果上一次安装被中断留下锁，再跑会提示「已有另一个任务」；确认没有任务在跑后执行
-`sh install.sh --unlock` 清掉即可（脚本也会自动识别失效的锁）。
+上次安装被中断留下的锁会被识别为失效并自动清理，确实卡住时也可以 `sh install.sh --unlock`。
 
 **手动安装**
 
