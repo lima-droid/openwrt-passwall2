@@ -24,6 +24,33 @@ with **all Xray support removed**; everything else tracks upstream and is re-syn
 
 ## 安装
 
+**一键安装 / 更新**
+
+```bash
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh)"
+```
+
+脚本只做一件事：从本仓库最新 release 取 `luci-app-passwall2` 和中文语言包装上。它会自动识别
+opkg / APK，补装缺失依赖（tcping、geoview、v2ray-geoip、v2ray-geosite），并且**不会改动**
+`/etc/config/passwall2`。
+
+| 参数 | 作用 |
+| --- | --- |
+| 无 | 安装 / 更新到最新 release |
+| `--check` | 只检查版本、验证包可下载，不安装 |
+| `--version 26.11.3-1` | 安装指定版本 |
+| `--force` | 已是最新也重装 |
+| `--uninstall` | 卸载（保留配置） |
+| `--purge` | 卸载并删除配置 |
+
+用 `curl | sh` 形式时这样传参：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh | sh -s -- --check
+```
+
+**手动安装**
+
 从 [Releases](../../releases/latest) 下载与路由器架构对应的包。
 
 **opkg（OpenWrt 23.05 及更早 / iStoreOS）**
