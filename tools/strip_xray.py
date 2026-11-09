@@ -707,6 +707,18 @@ def rules_meta(tree):
         "",
         flags=re.S,
     )
+    tree.sub(
+        WORKFLOW,
+        "  job_auto_compile:\n"
+        "    if: ${{ needs.job_check.outputs.has_update == 'true' && "
+        "needs.job_check.outputs.prerelease == 'false' }}\n",
+        "  job_auto_compile:\n"
+        "    # Architecture ZIP bundles are opt-in; the installer uses the app package and\n"
+        "    # downloads the matching sing-box core directly.\n"
+        "    if: ${{ needs.job_check.outputs.has_update == 'true' && "
+        "needs.job_check.outputs.prerelease == 'false' && "
+        "vars.BUILD_ARCHIVE_PACKAGES == 'true' }}\n",
+    )
 
 
 def rules_po(tree):

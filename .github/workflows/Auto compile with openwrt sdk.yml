@@ -234,7 +234,9 @@ jobs:
 
 
   job_auto_compile:
-    if: ${{ needs.job_check.outputs.has_update == 'true' && needs.job_check.outputs.prerelease == 'false' }}
+    # Architecture ZIP bundles are opt-in; the installer uses the app package and
+    # downloads the matching sing-box core directly.
+    if: ${{ needs.job_check.outputs.has_update == 'true' && needs.job_check.outputs.prerelease == 'false' && vars.BUILD_ARCHIVE_PACKAGES == 'true' }}
     needs: job_check
     runs-on: ubuntu-26.04
     name: build (${{ matrix.platform }})
