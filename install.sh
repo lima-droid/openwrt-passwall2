@@ -1017,7 +1017,11 @@ do_install() {
 
 	ui_title "PassWall2 安装 / 更新"
 	log "release: $RELEASE_TAG（包版本 $want）"
-	log "当前版本: ${cur:-未安装}"
+	if [ -n "$cur" ]; then
+		log "当前版本: $cur"
+	else
+		log "当前状态: 未安装"
+	fi
 	ensure_core
 	install_dependencies
 
