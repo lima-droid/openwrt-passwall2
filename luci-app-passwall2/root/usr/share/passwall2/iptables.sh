@@ -772,8 +772,10 @@ add_firewall_rule() {
 	$ipt_m -A PSW2_OUTPUT -m conntrack --ctdir REPLY -j RETURN
 	$ipt_m -A PSW2_OUTPUT -m mark --mark 0xff/0xff -j RETURN
 
-	ip rule add fwmark ${FWMARK} table 999 priority 999
-	ip route add local 0.0.0.0/0 dev lo table 999
+	ip rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||
+		ip rule add fwmark ${FWMARK} table 999 priority 999
+	ip route show table 999 2>/dev/null | grep -q "^local 0.0.0.0/0 dev lo" ||
+		ip route add local 0.0.0.0/0 dev lo table 999
 
 	[ "$accept_icmpv6" = "1" ] && {
 		$ip6t_n -N PSW2
@@ -831,8 +833,10 @@ add_firewall_rule() {
 		done
 	}
 
-	ip -6 rule add fwmark ${FWMARK} table 999 priority 999
-	ip -6 route add local ::/0 dev lo table 999
+	ip -6 rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||
+		ip -6 rule add fwmark ${FWMARK} table 999 priority 999
+	ip -6 route show table 999 2>/dev/null | grep -q "^local ::/0 dev lo" ||
+		ip -6 route add local ::/0 dev lo table 999
 
 	load_acl
 

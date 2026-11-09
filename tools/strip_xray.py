@@ -467,6 +467,8 @@ API = APP + "/luasrc/passwall2/api.lua"
 SINGBOX_UTIL = APP + "/luasrc/passwall2/util_sing-box.lua"
 CLASH_SUBCONVERTER = APP + "/root/usr/share/passwall2/clash_subconverter.lua"
 APPL = APP + "/root/usr/share/passwall2/app.sh"
+IPTABLES = APP + "/root/usr/share/passwall2/iptables.sh"
+NFTABLES = APP + "/root/usr/share/passwall2/nftables.sh"
 MAKEFILE = APP + "/Makefile"
 DEFAULT_CFG = APP + "/root/usr/share/passwall2/0_default_config"
 WORKFLOW = ".github/workflows/Auto compile with openwrt sdk.yml"
@@ -666,6 +668,46 @@ def rules_app_sh(tree):
         "# kill_all xray-plugin v2ray-plugin obfs-local shadow-tls",
         "# kill_all v2ray-plugin obfs-local shadow-tls",
     )
+
+
+def rules_network_routes(tree):
+    """Avoid duplicate-rule messages on repeated service starts."""
+    old_v4 = (
+        "\tip rule add fwmark ${FWMARK} table 999 priority 999\n"
+        "\tip route add local 0.0.0.0/0 dev lo table 999\n"
+    )
+    new_v4 = (
+        '\tip rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||\n'
+        "\t\tip rule add fwmark ${FWMARK} table 999 priority 999\n"
+        '\tip route show table 999 2>/dev/null | grep -q "^local 0.0.0.0/0 dev lo" ||\n'
+        "\t\tip route add local 0.0.0.0/0 dev lo table 999\n"
+    )
+    tree.sub(IPTABLES, old_v4, new_v4)
+    tree.sub(NFTABLES, old_v4, new_v4)
+
+    old_v6 = (
+        "\tip -6 rule add fwmark ${FWMARK} table 999 priority 999\n"
+        "\tip -6 route add local ::/0 dev lo table 999\n"
+    )
+    new_v6 = (
+        '\tip -6 rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||\n'
+        "\t\tip -6 rule add fwmark ${FWMARK} table 999 priority 999\n"
+        '\tip -6 route show table 999 2>/dev/null | grep -q "^local ::/0 dev lo" ||\n'
+        "\t\tip -6 route add local ::/0 dev lo table 999\n"
+    )
+    tree.sub(IPTABLES, old_v6, new_v6)
+
+    old_v6_nft = (
+        "\t\tip -6 rule add fwmark ${FWMARK} table 999 priority 999\n"
+        "\t\tip -6 route add local ::/0 dev lo table 999\n"
+    )
+    new_v6_nft = (
+        '\t\tip -6 rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||\n'
+        "\t\t\tip -6 rule add fwmark ${FWMARK} table 999 priority 999\n"
+        '\t\tip -6 route show table 999 2>/dev/null | grep -q "^local ::/0 dev lo" ||\n'
+        "\t\t\tip -6 route add local ::/0 dev lo table 999\n"
+    )
+    tree.sub(NFTABLES, old_v6_nft, new_v6_nft)
 
 
 def rules_meta(tree):
@@ -996,6 +1038,7 @@ def main():
     rules_api(tree)
     rules_strings(tree)
     rules_app_sh(tree)
+    rules_network_routes(tree)
     rules_meta(tree)
     rules_po(tree)
     rules_fork_ui(tree)

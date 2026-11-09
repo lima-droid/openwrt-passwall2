@@ -836,8 +836,10 @@ add_firewall_rule() {
 	[ -z "${is_tproxy}" ] && nft "add rule $NFTABLE_NAME PSW2_NAT ip daddr @$NFTSET_WAN counter return comment \"WAN_IP_RETURN\""
 	nft "add rule $NFTABLE_NAME PSW2_MANGLE ip daddr @$NFTSET_WAN counter return comment \"WAN_IP_RETURN\""
 
-	ip rule add fwmark ${FWMARK} table 999 priority 999
-	ip route add local 0.0.0.0/0 dev lo table 999
+	ip rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||
+		ip rule add fwmark ${FWMARK} table 999 priority 999
+	ip route show table 999 2>/dev/null | grep -q "^local 0.0.0.0/0 dev lo" ||
+		ip route add local 0.0.0.0/0 dev lo table 999
 
 	#ipv6 tproxy mode and udp
 	nft "add chain $NFTABLE_NAME PSW2_MANGLE_V6"
@@ -876,8 +878,10 @@ add_firewall_rule() {
 		nft "add rule $NFTABLE_NAME mangle_output ip6 daddr != @$NFTSET_DIRECT6 meta nfproto {ipv6} counter jump PSW2_OUTPUT_MANGLE_V6 comment \"PSW2_OUTPUT_MANGLE\""
 		nft "add rule $NFTABLE_NAME PSW2_MANGLE_V6 ip6 daddr @$NFTSET_WAN6 counter return comment \"WAN6_IP_RETURN\""
 
-		ip -6 rule add fwmark ${FWMARK} table 999 priority 999
-		ip -6 route add local ::/0 dev lo table 999
+		ip -6 rule show 2>/dev/null | grep -q "fwmark ${FWMARK}.*lookup 999" ||
+			ip -6 rule add fwmark ${FWMARK} table 999 priority 999
+		ip -6 route show table 999 2>/dev/null | grep -q "^local ::/0 dev lo" ||
+			ip -6 route add local ::/0 dev lo table 999
 	}
 
 	load_acl
