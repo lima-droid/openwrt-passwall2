@@ -708,6 +708,60 @@ def rules_meta(tree):
         flags=re.S,
     )
 
+    # Upstream syncs must rebuild even when upstream changes code without bumping
+    # PKG_VERSION/PKG_RELEASE. Keep builds serialized and replace existing assets.
+    tree.sub(
+        WORKFLOW,
+        "      ssh:\n"
+        "        description: 'SSH connection to Actions'\n"
+        "        required: false\n"
+        "        default: 'false'\n",
+        "      ssh:\n"
+        "        description: 'SSH connection to Actions'\n"
+        "        required: false\n"
+        "        default: 'false'\n"
+        "      force:\n"
+        "        description: 'Build even when the upstream version is unchanged'\n"
+        "        required: false\n"
+        "        default: 'false'\n",
+    )
+    tree.sub(
+        WORKFLOW,
+        "permissions:\n"
+        "  contents: write\n"
+        "  actions: write\n"
+        "\n",
+        "permissions:\n"
+        "  contents: write\n"
+        "  actions: write\n"
+        "\n"
+        "concurrency:\n"
+        "  group: auto-compile-${{ github.ref }}\n"
+        "  cancel-in-progress: false\n"
+        "\n",
+    )
+    tree.sub(
+        WORKFLOW,
+        '          if [ "$latest_version" = "$remote_latest_version" ]; then\n',
+        '          force_rebuild="${{ github.event.inputs.force }}"\n'
+        '          if [ "$latest_version" = "$remote_latest_version" ] && '
+        '[ "$force_rebuild" != "true" ]; then\n',
+    )
+    tree.sub(
+        WORKFLOW,
+        "          files: ${{ env.FIRMWARE }}/*\n",
+        "          files: ${{ env.FIRMWARE }}/*\n"
+        "          overwrite_files: true\n",
+        count=2,
+    )
+    tree.sub(
+        WORKFLOW,
+        "          files: ${{ env.FIRMWARE }}/upload/*\n",
+        "          files: ${{ env.FIRMWARE }}/upload/*\n"
+        "          overwrite_files: true\n",
+        count=2,
+    )
+
 
 def rules_po(tree):
     for lang in ("fa", "ru", "zh-cn", "zh-tw"):

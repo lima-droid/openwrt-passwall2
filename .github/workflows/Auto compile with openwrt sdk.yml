@@ -11,6 +11,10 @@ on:
         description: 'SSH connection to Actions'
         required: false
         default: 'false'
+      force:
+        description: 'Build even when the upstream version is unchanged'
+        required: false
+        default: 'false'
 env:
   TZ: Asia/Shanghai
   passwall2: ${{ github.repository }}
@@ -21,6 +25,10 @@ env:
 permissions:
   contents: write
   actions: write
+
+concurrency:
+  group: auto-compile-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   job_check:
@@ -58,7 +66,8 @@ jobs:
           fi
           echo "Remote latest: $remote_latest_version"
 
-          if [ "$latest_version" = "$remote_latest_version" ]; then
+          force_rebuild="${{ github.event.inputs.force }}"
+          if [ "$latest_version" = "$remote_latest_version" ] && [ "$force_rebuild" != "true" ]; then
             echo "has_update=false" >> $GITHUB_OUTPUT
           else
             echo "has_update=true" >> $GITHUB_OUTPUT
@@ -206,6 +215,7 @@ jobs:
         with:
           tag_name: ${{needs.job_check.outputs.passwall2_version}}
           files: ${{ env.FIRMWARE }}/*
+          overwrite_files: true
 
       - name: Compile passwall2 [ipk]
         id: compile_ipk
@@ -231,6 +241,7 @@ jobs:
         with:
           tag_name: ${{needs.job_check.outputs.passwall2_version}}
           files: ${{ env.FIRMWARE }}/*
+          overwrite_files: true
 
 
   job_auto_compile:
@@ -442,6 +453,7 @@ jobs:
         with:
           tag_name: ${{needs.job_check.outputs.passwall2_version}}
           files: ${{ env.FIRMWARE }}/upload/*
+          overwrite_files: true
 
       - name: ipk compile
         id: compile_ipk
@@ -501,6 +513,7 @@ jobs:
         with:
           tag_name: ${{needs.job_check.outputs.passwall2_version}}
           files: ${{ env.FIRMWARE }}/upload/*
+          overwrite_files: true
 
       - name: Generate release info
         id: release_info

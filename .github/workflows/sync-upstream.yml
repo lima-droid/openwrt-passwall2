@@ -86,9 +86,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # The build workflow only releases when the Makefile version differs from the
-          # latest release tag, so a UI-only sync stays a no-op.
-          gh workflow run "Auto compile with openwrt sdk" --ref main
+          # Rebuild even when upstream changed code without bumping its package version.
+          gh workflow run "Auto compile with openwrt sdk" --ref main -f force=true
           echo "build dispatched for ${UPSTREAM_SHA:0:10}"
 
       - name: Open an issue when the sync breaks
