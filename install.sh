@@ -64,7 +64,7 @@ ui_title() {
 }
 
 ui_kv() {
-	printf '  %-12s %s\n' "$1" "$2"
+	printf '  %s：%s\n' "$1" "$2"
 }
 
 usage() {
@@ -716,6 +716,10 @@ core_version() {
 	"$CORE_PKG" version 2>/dev/null | head -n1
 }
 
+core_version_short() {
+	core_version | sed 's/^sing-box version //'
+}
+
 install_dependencies() {
 	missing=""
 	for d in $DEPS; do
@@ -799,7 +803,7 @@ do_status() {
 	i18n_version="$(pkg_version "$PKG_I18N" || true)"
 	core_state="未安装"
 	if core_ready; then
-		core_state="$(core_version)"
+		core_state="$(core_version_short)"
 	elif command -v "$CORE_PKG" >/dev/null 2>&1; then
 		core_state="存在但无法运行"
 	fi
@@ -837,9 +841,9 @@ do_status() {
 		if fetch_release; then
 			latest="$(tag_to_pkgver "$RELEASE_TAG")"
 			if [ -n "$cur" ] && [ "$cur" = "$latest" ]; then
-				ui_kv "上游版本" "${C_GREEN}已是最新${C_RESET} ($latest)"
+				ui_kv "上游版本" "${C_GREEN}已是最新${C_RESET}（$latest）"
 			else
-				ui_kv "上游版本" "${C_YELLOW}可更新${C_RESET} ($latest)"
+				ui_kv "上游版本" "${C_YELLOW}可更新${C_RESET}（$latest）"
 			fi
 		else
 			ui_kv "上游版本" "${C_YELLOW}暂时无法检查${C_RESET}"
@@ -917,7 +921,7 @@ EOF
 	log "已有配置 /etc/config/passwall2 已保留；首次安装会生成默认配置"
 	ui_title "PassWall2 安装完成"
 	ui_kv "安装版本" "$new"
-	ui_kv "sing-box" "$(core_version)"
+	ui_kv "sing-box" "$(core_version_short)"
 	ui_kv "配置文件" "${C_GREEN}已保留或已生成${C_RESET}"
 	ui_kv "访问位置" "LuCI → 服务 → PassWall2"
 	ui_kv "提示" "页面未更新时按 Ctrl+F5"
