@@ -57,9 +57,12 @@ jobs:
           rsync -a --delete \
             --exclude '.git' \
             --exclude 'tools' \
+            --exclude '/install.sh' \
             --exclude 'FORK-NOTES.md' \
             --exclude '.github/workflows/sync-upstream.yml' \
             /tmp/upstream/ ./
+          test -x install.sh
+          sh -n install.sh
 
       - name: Commit and push
         id: commit

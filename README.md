@@ -33,14 +33,19 @@ curl -fsSL --retry 3 -o /tmp/pw2.sh https://raw.githubusercontent.com/lima-droid
 也可以直接 `sh -c "$(curl -fsSL ...)"`，但网络抖动时上面这种「先下载再执行」的写法会明确报
 `下载失败`，而不是静默什么都不做。
 
-脚本只做一件事：从本仓库最新 release 取 `luci-app-passwall2` 和中文语言包装上。它会自动识别
-opkg / APK，补装缺失依赖（tcping、geoview、v2ray-geoip、v2ray-geosite），并且**不会改动**
-`/etc/config/passwall2`。
+脚本从本仓库最新 release 安装 `luci-app-passwall2` 和中文语言包，并确保 sing-box 核心可用：
+先尝试系统软件源，找不到时再从 sing-box 官方 release 下载对应架构的静态二进制。它也会补装
+tcping、geoview、v2ray-geoip、v2ray-geosite。已有 `/etc/config/passwall2` 会保留；
+首次安装会生成默认配置。
+
+直接下载的 release 资产必须通过 GitHub API 提供的 SHA-256 校验。`gh-proxy.com` 和
+`ghfast.top` 只用于传输资产，API 与摘要始终直连 `api.github.com`；脚本不会关闭 TLS
+证书校验，也不会安装摘要缺失或校验失败的包。API 被限流时会中止，可稍后重试。
 
 | 参数 | 作用 |
 | --- | --- |
 | 无 | 安装 / 更新到最新 release |
-| `--check` | 只检查版本、验证包可下载，不安装 |
+| `--check` | 只检查版本、下载并校验包、检查核心与依赖，不安装 |
 | `--version 26.11.3-1` | 安装指定版本 |
 | `--force` | 已是最新也重装 |
 | `--unlock` | 清理残留的安装锁 |
@@ -60,12 +65,16 @@ curl -fsSL -o /tmp/pw2.sh https://gh-proxy.com/https://raw.githubusercontent.com
 sh /tmp/pw2.sh
 ```
 
-脚本内部下载 release 资产时也会自动在 `github.com` → `gh-proxy.com` → `ghfast.top` 之间回退。
+脚本内部下载 release 资产时也会自动在 `github.com` → `gh-proxy.com` → `ghfast.top` 之间回退，
+但每个下载文件都必须匹配 GitHub API 的 SHA-256。
 上次安装被中断留下的锁会被识别为失效并自动清理，确实卡住时也可以 `sh install.sh --unlock`。
 
 **手动安装**
 
-从 [Releases](../../releases/latest) 下载与路由器架构对应的包。
+从 [Releases](../../releases/latest) 下载与路由器架构对应的包。Release 自带的应用和语言包是
+`all` 架构，但不会包含可执行核心；手动安装时还需确保 `/usr/bin/sing-box` 可用。软件源没有时，
+从 [sing-box 官方 Release](https://github.com/SagerNet/sing-box/releases) 选择匹配架构的
+musl 静态包。
 
 **opkg（OpenWrt 23.05 及更早 / iStoreOS）**
 
@@ -81,6 +90,9 @@ opkg install luci-app-passwall2_<版本>_all.ipk
 apk add --allow-untrusted luci-app-passwall2-<版本>-r1.apk
 # 语言包：luci-i18n-passwall2-zh-cn-<版本>.apk
 ```
+
+手动下载本地包时，先用 GitHub API 的 `digest: sha256:...` 或官方校验值确认文件，再用
+`sha256sum` 核对。`--allow-untrusted` 只适用于已经核验过的本地包。
 
 装完刷新 LuCI（或 `/etc/init.d/uhttpd restart`）。首次安装的配置就是上面那份默认模板。
 
