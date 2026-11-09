@@ -21,6 +21,7 @@
 set -eu
 
 REPO="lima-droid/openwrt-passwall2"
+UPSTREAM_REPO="Openwrt-Passwall/openwrt-passwall2"
 API="https://api.github.com/repos/$REPO/releases"
 
 PKG_MAIN="luci-app-passwall2"
@@ -38,6 +39,8 @@ TAG=""
 FORCE=0
 ARG_COUNT="$#"
 UPDATE_ONLY=0
+BUNDLE_READY=0
+BUNDLE_DIR=""
 
 log()  { printf '%s\n' "==> $*"; }
 warn() { printf '%s\n' "[WARN] $*" >&2; }
@@ -578,6 +581,18 @@ pick_asset_from() {
 	printf '%s\n' "$urls" | grep -E "$pattern" | head -n1
 }
 
+pick_asset_named_from() {
+	urls="$1"
+	name="$2"
+	for url in $urls; do
+		if [ "$(basename "$url")" = "$name" ]; then
+			printf '%s\n' "$url"
+			return 0
+		fi
+	done
+	return 1
+}
+
 asset_name() { basename "$1"; }
 
 asset_digest_from() {
@@ -623,6 +638,72 @@ download_verified() {
 
 tag_to_pkgver() {
 	printf '%s' "$1" | sed 's/-\([0-9][0-9]*\)$/-r\1/'
+}
+
+distro_arch() {
+	unset DISTRIB_ARCH
+	. /etc/openwrt_release 2>/dev/null || true
+	printf '%s\n' "${DISTRIB_ARCH:-}"
+}
+
+prepare_release_bundle() {
+	[ "$BUNDLE_READY" = 1 ] && return 0
+	need_cmd unzip
+	darch="$(distro_arch)"
+	[ -n "$darch" ] || return 1
+	bundle_name="packages_${EXT}_${darch}.zip"
+	bundle_url="$(pick_asset_named_from "$ASSET_URLS" "$bundle_name" || true)"
+	bundle_digests="$ASSET_DIGESTS"
+	bundle_source="PassWall2 release"
+
+	if [ -z "$bundle_url" ]; then
+		upstream_json="$(mktemp /tmp/passwall2-upstream.XXXXXX)"
+		register_tmp "$upstream_json"
+		upstream_api="https://api.github.com/repos/$UPSTREAM_REPO/releases/tags/$RELEASE_TAG"
+		download_file "$upstream_api" "$upstream_json" || return 1
+		upstream_urls="$(parse_asset_urls "$upstream_json")"
+		upstream_digests="$(parse_asset_digests "$upstream_json")"
+		bundle_url="$(pick_asset_named_from "$upstream_urls" "$bundle_name" || true)"
+		bundle_digests="$upstream_digests"
+		bundle_source="$UPSTREAM_REPO $RELEASE_TAG"
+	fi
+	[ -n "$bundle_url" ] || return 1
+
+	bundle_file="/tmp/$bundle_name"; register_tmp "$bundle_file"
+	BUNDLE_DIR="$(mktemp -d /tmp/passwall2-bundle.XXXXXX)"; register_tmp "$BUNDLE_DIR"
+	log "获取架构依赖: $bundle_source"
+	download_verified_from "$bundle_url" "$bundle_file" "$bundle_digests" "$bundle_source" ||
+		return 1
+	unzip -q "$bundle_file" -d "$BUNDLE_DIR" || return 1
+	BUNDLE_READY=1
+}
+
+install_release_packages() {
+	prepare_release_bundle || return 1
+	selected=""
+	all_found=1
+	for package in "$@"; do
+		found=""
+		for file in "$BUNDLE_DIR"/"$package"_*."$EXT" "$BUNDLE_DIR"/"$package"-*."$EXT"; do
+			[ -f "$file" ] || continue
+			found="$file"
+			break
+		done
+		if [ -n "$found" ]; then
+			selected="$selected $found"
+		else
+			all_found=0
+		fi
+	done
+	[ -n "$selected" ] || return 1
+	install_log="$(mktemp /tmp/passwall2-bundle-install.XXXXXX)"
+	register_tmp "$install_log"
+	if ! pkg_install_files $selected >"$install_log" 2>&1; then
+		cat "$install_log" >&2
+		return 1
+	fi
+	rm -f "$install_log"
+	[ "$all_found" = 1 ]
 }
 
 pkg_install_packages() {
@@ -715,6 +796,10 @@ install_core_from_upstream() {
 }
 
 ensure_core() {
+	if install_release_packages "$CORE_PKG" && core_ready; then
+		log "sing-box 已安装: $(core_version)"
+		return 0
+	fi
 	if core_ready; then
 		log "sing-box 可用: $(core_version)"
 		return 0
@@ -746,6 +831,20 @@ install_dependencies() {
 	done
 	[ -n "$missing" ] || return 0
 
+	log "从 Release 补装依赖:$missing"
+	if install_release_packages $missing; then
+		missing=""
+		for d in $DEPS; do
+			pkg_installed "$d" || missing="$missing $d"
+		done
+		[ -z "$missing" ] && return 0
+	fi
+
+	missing=""
+	for d in $DEPS; do
+		pkg_installed "$d" || missing="$missing $d"
+	done
+	[ -n "$missing" ] || return 0
 	log "补装依赖:$missing"
 	pm_update_once
 	pkg_install_packages $missing ||
