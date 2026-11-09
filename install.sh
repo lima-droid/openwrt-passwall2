@@ -202,13 +202,12 @@ stop_passwall_services() {
 	for init in passwall2 passwall2_server; do
 		[ -x "/etc/init.d/$init" ] || continue
 		"/etc/init.d/$init" disable >/dev/null 2>&1 || true
-		if command -v timeout >/dev/null 2>&1; then
-			timeout 30 "/etc/init.d/$init" stop >/dev/null 2>&1 || true
-		else
-			"/etc/init.d/$init" stop >/dev/null 2>&1 || true
-		fi
 	done
 
+	# Some upstream stop scripts use pgrep -f on passwall2 paths. In a one-line
+	# `sh -c "$(curl ...)"` invocation that pattern is present in the installer's
+	# own argv, so the old stop script can kill the installer. Terminate only real
+	# non-shell processes here; network and DNS state is cleared explicitly below.
 	for pattern in \
 		'/usr/share/passwall2/' \
 		'/tmp/etc/passwall2/' \
@@ -357,6 +356,20 @@ remove_passwall_packages() {
 		done <<EOF
 $(printf '%s\n' "$packages" | tr ' ' '\n')
 EOF
+}
+
+neutralize_package_hooks() {
+	for init in /etc/init.d/passwall2 /etc/init.d/passwall2_server; do
+		[ -f "$init" ] || continue
+		printf '%s\n' '#!/bin/sh' 'exit 0' >"$init"
+		chmod 0755 "$init"
+	done
+	for hook in /usr/lib/opkg/info/*passwall2*.prerm \
+		/usr/lib/opkg/info/*passwall2*.prerm-pkg; do
+		[ -f "$hook" ] || continue
+		printf '%s\n' '#!/bin/sh' 'exit 0' >"$hook"
+		chmod 0755 "$hook"
+	done
 }
 
 remove_passwall_files() {
@@ -1068,6 +1081,7 @@ do_uninstall() {
 	clean_passwall_crontab
 	reload_firewall
 	log "移除 PassWall2 软件包"
+	neutralize_package_hooks
 	remove_passwall_packages
 	log "删除配置、LuCI、运行状态和临时文件"
 	remove_passwall_files
