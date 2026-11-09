@@ -699,6 +699,15 @@ def rules_meta(tree):
     # CI package list
     tree.sub(WORKFLOW, " v2ray-plugin xray-core", " v2ray-plugin", count=2)
 
+    # This fork does not dispatch the upstream package cache. Removing the
+    # optional job avoids a missing-token failure without changing package builds.
+    tree.resub(
+        WORKFLOW,
+        r"  job_trigger_packages_cache:\n.*?\n\n(?=  job_auto_compile:)",
+        "",
+        flags=re.S,
+    )
+
 
 def rules_po(tree):
     for lang in ("fa", "ru", "zh-cn", "zh-tw"):
