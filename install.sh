@@ -864,13 +864,18 @@ do_install() {
 	fi
 	fetch_release || die "无法获取 release 信息（网络或仓库不可达）"
 	want="$(tag_to_pkgver "$RELEASE_TAG")"
-	log "release: $RELEASE_TAG（包版本 $want）"
-	log "当前版本: ${cur:-未安装}"
-
-	ensure_core
-	install_dependencies
 
 	if [ "$cur" = "$want" ] && [ "$FORCE" != 1 ]; then
+		need_repair=0
+		core_ready || need_repair=1
+		for dependency in $DEPS; do
+			pkg_installed "$dependency" || need_repair=1
+		done
+		if [ "$need_repair" = 1 ]; then
+			ui_title "补齐运行组件"
+			ensure_core
+			install_dependencies
+		fi
 		ui_title "无需更新"
 		ui_kv "当前版本" "$cur"
 		ui_kv "上游版本" "$want"
@@ -878,6 +883,12 @@ do_install() {
 		ui_rule
 		exit 0
 	fi
+
+	ui_title "PassWall2 安装 / 更新"
+	log "release: $RELEASE_TAG（包版本 $want）"
+	log "当前版本: ${cur:-未安装}"
+	ensure_core
+	install_dependencies
 
 	if [ "$PM" = opkg ]; then
 		main_url="$(pick_asset "/${PKG_MAIN}_[0-9][^/]*\.ipk$")"
@@ -917,9 +928,7 @@ EOF
 
 	new="$(pkg_version "$PKG_MAIN" || true)"
 	[ -n "$new" ] || die "安装后读不到版本，可能没有真正装上"
-	log "安装完成: $new"
 	refresh_luci
-	log "已有配置 /etc/config/passwall2 已保留；首次安装会生成默认配置"
 	ui_title "PassWall2 安装完成"
 	ui_kv "安装版本" "$new"
 	ui_kv "核心版本" "$(core_version_short)"
