@@ -465,6 +465,7 @@ def rules_lua(tree):
 HTML = APP + "/luasrc/view/passwall2/node_config/link_share_man.htm"
 API = APP + "/luasrc/passwall2/api.lua"
 SINGBOX_UTIL = APP + "/luasrc/passwall2/util_sing-box.lua"
+CLASH_SUBCONVERTER = APP + "/root/usr/share/passwall2/clash_subconverter.lua"
 APPL = APP + "/root/usr/share/passwall2/app.sh"
 MAKEFILE = APP + "/Makefile"
 DEFAULT_CFG = APP + "/root/usr/share/passwall2/0_default_config"
@@ -527,7 +528,14 @@ def rules_html(tree):
 
 
 def rules_api(tree):
-    tree.drop_block(API, r"^function sha256_sb_xray\(str\)$", r"^end$")
+    # The reverse conversion is used by the Clash converter even without Xray.
+    # Keep it under a neutral name so the generated tree has no Xray references.
+    tree.sub(API, "function sha256_sb_xray(str)", "function sha256_b64tohex(str)")
+    tree.sub(
+        CLASH_SUBCONVERTER,
+        "api.sha256_sb_xray(",
+        "api.sha256_b64tohex(",
+    )
     tree.sub(API, "function sha256_xray_sb(str)", "function sha256_hex2b64(str)")
     tree.sub(SINGBOX_UTIL, "api.sha256_xray_sb(", "api.sha256_hex2b64(")
     tree.drop_block(API, r'^\tlocal xray = finded_com\("xray"\)$', r"^\tend$")
