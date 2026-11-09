@@ -691,6 +691,42 @@ def rules_meta(tree):
     # CI package list
     tree.sub(WORKFLOW, " v2ray-plugin xray-core", " v2ray-plugin", count=2)
 
+    # The upstream package-cache dispatch needs a cross-repository token. Treat it as
+    # an optional integration so a fork without that secret can still finish green.
+    dispatch_old = (
+        "      - name: Dispatch Auto Cache Software Release JSONs\n"
+        "        env:\n"
+        "          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}\n"
+        "        run: |\n"
+        '          gh workflow run "Auto cache software release jsons.yml" \\\n'
+        '            --repo "${{ env.packages }}" \\\n'
+        "            --ref main\n"
+    )
+    dispatch_new = (
+        "      - name: Check packages dispatch token\n"
+        "        id: packages_token\n"
+        "        env:\n"
+        "          PACKAGES_DISPATCH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}\n"
+        "        run: |\n"
+        '          if [ -n "$PACKAGES_DISPATCH_TOKEN" ]; then\n'
+        '            echo "enabled=true" >> "$GITHUB_OUTPUT"\n'
+        "          else\n"
+        '            echo "enabled=false" >> "$GITHUB_OUTPUT"\n'
+        '            echo "::warning title=Skipping packages cache::'
+        'PACKAGES_DISPATCH_TOKEN is not configured"\n'
+        "          fi\n"
+        "\n"
+        "      - name: Dispatch Auto Cache Software Release JSONs\n"
+        "        if: steps.packages_token.outputs.enabled == 'true'\n"
+        "        env:\n"
+        "          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}\n"
+        "        run: |\n"
+        '          gh workflow run "Auto cache software release jsons.yml" \\\n'
+        '            --repo "${{ env.packages }}" \\\n'
+        "            --ref main\n"
+    )
+    tree.sub(WORKFLOW, dispatch_old, dispatch_new)
+
 
 def rules_po(tree):
     for lang in ("fa", "ru", "zh-cn", "zh-tw"):
@@ -760,12 +796,12 @@ LOOP_LABEL_OLD = (
     '\t\t<span class="app-version-sub"><span class="com_version" key="<%=k%>"><%=translate("Null")%></span></span>\n'
     "\t</label>\n"
     '\t<div class="cbi-value-field">\n'
-    '\t\t<div class="cbi-value-description">\n'
+    '\t\t<div class="app-update-actions">\n'
 )
 LOOP_LABEL_NEW = (
     '\t<label class="cbi-value-title"><%=v.name%> <%:Version%></label>\n'
     '\t<div class="cbi-value-field">\n'
-    '\t\t<div class="cbi-value-description">\n'
+    '\t\t<div class="app-update-actions">\n'
     '\t\t\t<span class="app-version-sub">【 <span class="com_version" key="<%=k%>"><%=translate("Null")%></span> 】</span>\n'
 )
 PW_LABEL_OLD = (
@@ -773,12 +809,12 @@ PW_LABEL_OLD = (
     '\t\t<span class="app-version-sub"><%=api.get_version()%></span>\n'
     "\t</label>\n"
     '\t<div class="cbi-value-field">\n'
-    '\t\t<div class="cbi-value-description">\n'
+    '\t\t<div class="app-update-actions">\n'
 )
 PW_LABEL_NEW = (
     '\t<label class="cbi-value-title">Passwall2 <%:Version%></label>\n'
     '\t<div class="cbi-value-field">\n'
-    '\t\t<div class="cbi-value-description">\n'
+    '\t\t<div class="app-update-actions">\n'
     '\t\t\t<span class="app-version-sub">【 <%=api.get_version()%> 】</span>\n'
 )
 

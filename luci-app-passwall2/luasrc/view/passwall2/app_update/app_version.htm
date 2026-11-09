@@ -333,13 +333,11 @@ local com = self.com
 		padding-top: .4rem;
 		padding-bottom: .4rem;
 	}
-	/* argon gives .cbi-value-description a big padding and a 0.75rem font; both
-	   make the version row look loose and tiny */
-	#app_version .cbi-value-description {
-		padding: 0;
-		font-size: .875rem;
-		line-height: 1.4;
-		color: inherit;
+	#app_version .app-update-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: .4rem;
 	}
 	/* one label column shared by the version rows and the option rows below them,
 	   so every label ends on the same vertical line */
@@ -399,7 +397,7 @@ local com = self.com
 <div class="cbi-value app-version-row">
 	<label class="cbi-value-title"><%=v.name%> <%:Version%></label>
 	<div class="cbi-value-field">
-		<div class="cbi-value-description">
+		<div class="app-update-actions">
 			<span class="app-version-sub">【 <span class="com_version" key="<%=k%>"><%=translate("Null")%></span> 】</span>
 			<input class="btn cbi-button cbi-button-apply" type="button" id="_<%=k%>-check_btn" data-update-app="<%=k%>"
 				onclick="onBtnClick(this,'<%=k%>');" value="<%:Check update%>" />
@@ -414,7 +412,7 @@ local com = self.com
 <div class="cbi-value app-version-row">
 	<label class="cbi-value-title">Passwall2 <%:Version%></label>
 	<div class="cbi-value-field">
-		<div class="cbi-value-description">
+		<div class="app-update-actions">
 			<span class="app-version-sub">【 <%=api.get_version()%> 】</span>
 			<input class="btn cbi-button cbi-button-apply" type="button" id="<%=api.appname%>-check_btn" data-update-app="<%=api.appname%>"
 				onclick="onBtnClick(this, appname);" value="<%:Check update%>" />

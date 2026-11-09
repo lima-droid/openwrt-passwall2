@@ -239,7 +239,20 @@ jobs:
     if: ${{ needs.job_build_passwall2.result == 'success' }}
     runs-on: ubuntu-26.04
     steps:
+      - name: Check packages dispatch token
+        id: packages_token
+        env:
+          PACKAGES_DISPATCH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}
+        run: |
+          if [ -n "$PACKAGES_DISPATCH_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Skipping packages cache::PACKAGES_DISPATCH_TOKEN is not configured"
+          fi
+
       - name: Dispatch Auto Cache Software Release JSONs
+        if: steps.packages_token.outputs.enabled == 'true'
         env:
           GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}
         run: |

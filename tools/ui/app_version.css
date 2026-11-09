@@ -7,13 +7,11 @@
 		padding-top: .4rem;
 		padding-bottom: .4rem;
 	}
-	/* argon gives .cbi-value-description a big padding and a 0.75rem font; both
-	   make the version row look loose and tiny */
-	#app_version .cbi-value-description {
-		padding: 0;
-		font-size: .875rem;
-		line-height: 1.4;
-		color: inherit;
+	#app_version .app-update-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: .4rem;
 	}
 	/* one label column shared by the version rows and the option rows below them,
 	   so every label ends on the same vertical line */
