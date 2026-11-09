@@ -1084,13 +1084,13 @@ do_uninstall() {
 	clean_passwall_network_state
 	clean_passwall_crontab
 	reload_firewall
-	log "移除 PassWall2 软件包"
+	log "移除PassWall2 软件包"
 	neutralize_package_hooks
 	remove_passwall_packages
-	log "删除配置、LuCI、运行状态和临时文件"
-	remove_passwall_files
 	log "清理安装器补装的组件"
 	remove_passwall_dependencies
+	log "删除配置、LuCI、运行状态和临时文件"
+	remove_passwall_files
 	# Package removal and firewall reload can regenerate cache files, so flush again.
 	clean_passwall_uci
 	clean_passwall_network_state
