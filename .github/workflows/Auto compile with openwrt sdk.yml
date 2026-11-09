@@ -25,7 +25,7 @@ permissions:
 jobs:
   job_check:
     name: Check Version
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       passwall2_version: ${{ steps.check_version.outputs.latest_version }}
       has_update: ${{ steps.check_version.outputs.has_update }}
@@ -89,7 +89,7 @@ jobs:
     name: Build passwall2
     needs: job_check
     if: needs.job_check.outputs.has_update == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
     steps:
