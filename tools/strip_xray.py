@@ -699,21 +699,6 @@ def rules_meta(tree):
     # CI package list
     tree.sub(WORKFLOW, " v2ray-plugin xray-core", " v2ray-plugin", count=2)
 
-    # The fork does not use the upstream cross-repository package cache or the
-    # thirteen-architecture dependency matrix. Remove both jobs completely so
-    # Actions shows only the version check and the PassWall2 package build.
-    tree.resub(
-        WORKFLOW,
-        r"  job_trigger_packages_cache:\n.*?\n\n(?=  job_auto_compile:)",
-        "",
-        flags=re.S,
-    )
-    tree.resub(
-        WORKFLOW,
-        r"(?ms)^  job_auto_compile:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)",
-        "",
-    )
-
 
 def rules_po(tree):
     for lang in ("fa", "ru", "zh-cn", "zh-tw"):
