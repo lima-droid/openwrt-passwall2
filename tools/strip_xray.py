@@ -699,41 +699,14 @@ def rules_meta(tree):
     # CI package list
     tree.sub(WORKFLOW, " v2ray-plugin xray-core", " v2ray-plugin", count=2)
 
-    # The upstream package-cache dispatch needs a cross-repository token. Treat it as
-    # an optional integration so a fork without that secret can still finish green.
-    dispatch_old = (
-        "      - name: Dispatch Auto Cache Software Release JSONs\n"
-        "        env:\n"
-        "          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}\n"
-        "        run: |\n"
-        '          gh workflow run "Auto cache software release jsons.yml" \\\n'
-        '            --repo "${{ env.packages }}" \\\n'
-        "            --ref main\n"
+    # The fork does not use the upstream cross-repository package cache. Drop the
+    # optional job instead of requiring its token or emitting a skipped warning.
+    tree.resub(
+        WORKFLOW,
+        r"  job_trigger_packages_cache:\n.*?\n\n(?=  job_auto_compile:)",
+        "",
+        flags=re.S,
     )
-    dispatch_new = (
-        "      - name: Check packages dispatch token\n"
-        "        id: packages_token\n"
-        "        env:\n"
-        "          PACKAGES_DISPATCH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}\n"
-        "        run: |\n"
-        '          if [ -n "$PACKAGES_DISPATCH_TOKEN" ]; then\n'
-        '            echo "enabled=true" >> "$GITHUB_OUTPUT"\n'
-        "          else\n"
-        '            echo "enabled=false" >> "$GITHUB_OUTPUT"\n'
-        '            echo "::warning title=Skipping packages cache::'
-        'PACKAGES_DISPATCH_TOKEN is not configured"\n'
-        "          fi\n"
-        "\n"
-        "      - name: Dispatch Auto Cache Software Release JSONs\n"
-        "        if: steps.packages_token.outputs.enabled == 'true'\n"
-        "        env:\n"
-        "          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}\n"
-        "        run: |\n"
-        '          gh workflow run "Auto cache software release jsons.yml" \\\n'
-        '            --repo "${{ env.packages }}" \\\n'
-        "            --ref main\n"
-    )
-    tree.sub(WORKFLOW, dispatch_old, dispatch_new)
 
 
 def rules_po(tree):
