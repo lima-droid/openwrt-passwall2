@@ -825,17 +825,18 @@ do_status() {
 	ui_kv "包管理器" "$PM"
 	ui_kv "安装版本" "${cur:-${C_RED}未安装${C_RESET}}"
 	ui_kv "中文语言" "${i18n_version:-${C_YELLOW}未安装${C_RESET}}"
-	ui_kv "sing-box" "$core_state"
+	ui_kv "核心版本" "$core_state"
 	ui_kv "运行状态" "$service_state"
 	ui_kv "开机启动" "$boot_state"
 	ui_kv "配置文件" "$config_state"
-	ui_kv "防火墙" "$firewall_state"
+	ui_kv "防火墙　" "$firewall_state"
 
 	missing=""
 	for dependency in $DEPS; do
 		pkg_installed "$dependency" || missing="$missing $dependency"
 	done
-	ui_kv "依赖" "${missing:-${C_GREEN}全部正常${C_RESET}}"
+	[ -z "$missing" ] || missing="${missing# }"
+	ui_kv "依赖状态" "${missing:-${C_GREEN}全部正常${C_RESET}}"
 
 	if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
 		if fetch_release; then
@@ -873,7 +874,7 @@ do_install() {
 		ui_title "无需更新"
 		ui_kv "当前版本" "$cur"
 		ui_kv "上游版本" "$want"
-		ui_kv "状态" "${C_GREEN}已是最新${C_RESET}"
+		ui_kv "更新状态" "${C_GREEN}已是最新${C_RESET}"
 		ui_rule
 		exit 0
 	fi
@@ -921,10 +922,10 @@ EOF
 	log "已有配置 /etc/config/passwall2 已保留；首次安装会生成默认配置"
 	ui_title "PassWall2 安装完成"
 	ui_kv "安装版本" "$new"
-	ui_kv "sing-box" "$(core_version_short)"
+	ui_kv "核心版本" "$(core_version_short)"
 	ui_kv "配置文件" "${C_GREEN}已保留或已生成${C_RESET}"
 	ui_kv "访问位置" "LuCI → 服务 → PassWall2"
-	ui_kv "提示" "页面未更新时按 Ctrl+F5"
+	ui_kv "页面缓存" "页面未更新时按 Ctrl+F5"
 	ui_rule
 }
 
@@ -953,9 +954,9 @@ do_uninstall() {
 	refresh_luci
 	verify_passwall_removed
 	ui_title "PassWall2 卸载完成"
-	ui_kv "软件包" "${C_GREEN}已删除${C_RESET}"
-	ui_kv "配置与文件" "${C_GREEN}已删除${C_RESET}"
-	ui_kv "防火墙规则" "${C_GREEN}已清除${C_RESET}"
+	ui_kv "软件包　" "${C_GREEN}已删除${C_RESET}"
+	ui_kv "配置文件" "${C_GREEN}已删除${C_RESET}"
+	ui_kv "防火墙　" "${C_GREEN}已清除${C_RESET}"
 	ui_kv "残留检查" "${C_GREEN}通过${C_RESET}"
 	ui_rule
 }
