@@ -959,11 +959,11 @@ do_uninstall() {
 interactive_menu() {
 	while :; do
 		printf '\n'
-		ui_title "PassWall2 管理器"
-		printf '  %s1%s  安装 PassWall2\n' "$C_GREEN" "$C_RESET"
-		printf '  %s2%s  更新 PassWall2\n' "$C_CYAN" "$C_RESET"
-		printf '  %s3%s  查看运行状态\n' "$C_YELLOW" "$C_RESET"
-		printf '  %s4%s  零残留卸载\n' "$C_RED" "$C_RESET"
+		ui_title "管理器"
+		printf '  %s1%s  安装\n' "$C_GREEN" "$C_RESET"
+		printf '  %s2%s  更新\n' "$C_CYAN" "$C_RESET"
+		printf '  %s3%s  状态\n' "$C_YELLOW" "$C_RESET"
+		printf '  %s4%s  卸载\n' "$C_RED" "$C_RESET"
 		printf '  %s0%s  退出\n' "$C_BOLD" "$C_RESET"
 		ui_rule
 		printf '  请选择 [0-4]: '
