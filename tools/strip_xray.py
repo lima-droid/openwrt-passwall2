@@ -713,6 +713,13 @@ def rules_meta(tree):
         r"(?ms)^  job_auto_compile:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)",
         "",
     )
+    tree.resub(
+        WORKFLOW,
+        r"^    runs-on: ubuntu-26\.04$",
+        "    runs-on: ubuntu-24.04",
+        expect=2,
+        flags=re.M,
+    )
 
 
 def rules_po(tree):
