@@ -2160,6 +2160,13 @@ function sha256_hex2b64(str)
 	return base64Encode(binary)
 end
 
+function sha256_b64tohex(str)
+	local binary = base64Decode(str)
+	if binary == str or #binary ~= 32 then return str end
+	return (binary:gsub(".", function(byte)
+		return string.format("%02X", string.byte(byte))
+	end))
+end
 
 function get_dnsmasq_server_domain()
 	local dnsmasq_server = uci:get("dhcp", "@dnsmasq[0]", "server")

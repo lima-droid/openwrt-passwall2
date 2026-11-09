@@ -389,6 +389,17 @@ local com = self.com
 		font-size: .8125rem;
 		line-height: 1.4;
 	}
+	/* Keep action controls out of theme help-text folding. */
+	#app_version .app-update-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: .5rem;
+	}
+	#app_version .app-update-actions > span {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
 </style>
 
 <%for _, k in ipairs(com.order) do
