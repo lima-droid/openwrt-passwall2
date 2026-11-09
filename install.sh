@@ -1096,8 +1096,8 @@ do_uninstall() {
 	verify_passwall_removed
 	ui_title "PassWall2 卸载完成"
 	ui_kv "软件包　" "${C_GREEN}已删除${C_RESET}"
-	ui_kv "配置文件" "${C_GREEN}已删除${C_RESET}"
 	ui_kv "防火墙　" "${C_GREEN}已清除${C_RESET}"
+	ui_kv "配置文件" "${C_GREEN}已删除${C_RESET}"
 	ui_kv "残留检查" "${C_GREEN}全部通过${C_RESET}"
 	ui_rule
 }
