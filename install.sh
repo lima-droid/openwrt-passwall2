@@ -6,7 +6,7 @@
 # 自动补齐 sing-box 和依赖；卸载时删除配置、运行状态、防火墙规则和所有专用文件。
 #
 # 用法：
-#   sh install.sh                 # 安装 / 更新到最新 release
+#   sh install.sh                 # 打开安装 / 更新 / 状态 / 卸载菜单
 #   sh install.sh --check         # 只检查（查版本、验证资源可下载），不安装
 #   sh install.sh --version TAG   # 安装指定版本，例如 --version 26.11.3-1
 #   sh install.sh --force         # 版本相同也重装
@@ -36,15 +36,44 @@ LOCK_TOKEN=""
 MODE="install"
 TAG=""
 FORCE=0
+ARG_COUNT="$#"
+UPDATE_ONLY=0
 
 log()  { printf '%s\n' "==> $*"; }
 warn() { printf '%s\n' "[WARN] $*" >&2; }
 die()  { printf '%s\n' "[ERROR] $*" >&2; exit 1; }
 
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+	C_RESET="$(printf '\033[0m')"
+	C_BOLD="$(printf '\033[1m')"
+	C_CYAN="$(printf '\033[36m')"
+	C_GREEN="$(printf '\033[32m')"
+	C_YELLOW="$(printf '\033[33m')"
+	C_RED="$(printf '\033[31m')"
+else
+	C_RESET=""; C_BOLD=""; C_CYAN=""; C_GREEN=""; C_YELLOW=""; C_RED=""
+fi
+
+ui_rule() {
+	printf '%s\n' "${C_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
+}
+
+ui_title() {
+	printf '\n%s%s%s\n' "$C_BOLD$C_CYAN" "$1" "$C_RESET"
+	ui_rule
+}
+
+ui_kv() {
+	printf '  %-12s %s\n' "$1" "$2"
+}
+
 usage() {
 	cat <<'EOF'
 用法:
-  sh install.sh                 # 安装 / 更新到最新 release
+  sh install.sh                 # 打开管理菜单
+  sh install.sh --install       # 直接安装
+  sh install.sh --update        # 直接更新
+  sh install.sh --status        # 查看状态
   sh install.sh --check         # 只检查，不安装
   sh install.sh --version TAG   # 安装指定版本（如 26.11.3-1）
   sh install.sh --force         # 已是最新也重装
@@ -78,6 +107,9 @@ register_tmp() { TMPFILES="$TMPFILES $1"; }
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--check) MODE="check" ;;
+		--install) MODE="install" ;;
+		--update) MODE="update"; UPDATE_ONLY=1 ;;
+		--status) MODE="status" ;;
 		--version)
 			[ "$#" -ge 2 ] || die "--version 需要一个参数"
 			TAG="$2"
@@ -92,6 +124,10 @@ while [ "$#" -gt 0 ]; do
 	esac
 	shift
 done
+
+if [ "$ARG_COUNT" -eq 0 ] && [ -t 0 ]; then
+	MODE="menu"
+fi
 
 # ---------- 包管理器 ----------
 if command -v apk >/dev/null 2>&1 && [ -s /lib/apk/db/installed ]; then
@@ -108,12 +144,13 @@ esac
 
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "缺少命令: $1"; }
 for c in sed grep awk head basename mktemp sha256sum; do need_cmd "$c"; done
+require_downloader() {
+	if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+		die "缺少 curl 或 wget"
+	fi
+}
 case "$MODE" in
-	install|check)
-		if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-			die "缺少 curl 或 wget"
-		fi
-		;;
+	install|update|check) require_downloader ;;
 esac
 
 [ -f /etc/openwrt_release ] || die "未检测到 /etc/openwrt_release，这不像是 OpenWrt 系统"
@@ -700,6 +737,8 @@ install_dependencies() {
 
 # ---------- 检查 ----------
 do_check() {
+	require_downloader
+	ui_title "PassWall2 检查"
 	log "包管理器: $PM（扩展名 .$EXT）"
 	log "查询 release: ${TAG:-latest}"
 	fetch_release || die "无法获取 release 信息（网络或仓库不可达）"
@@ -755,9 +794,69 @@ do_check() {
 	return "$check_status"
 }
 
+do_status() {
+	cur="$(pkg_version "$PKG_MAIN" || true)"
+	i18n_version="$(pkg_version "$PKG_I18N" || true)"
+	core_state="未安装"
+	if core_ready; then
+		core_state="$(core_version)"
+	elif command -v "$CORE_PKG" >/dev/null 2>&1; then
+		core_state="存在但无法运行"
+	fi
+	service_state="${C_RED}未运行${C_RESET}"
+	if command -v pgrep >/dev/null 2>&1 &&
+		pgrep -f '/tmp/etc/passwall2/' >/dev/null 2>&1; then
+		service_state="${C_GREEN}运行中${C_RESET}"
+	fi
+	boot_state="未启用"
+	[ -L /etc/rc.d/S99passwall2 ] && boot_state="已启用"
+	config_state="${C_YELLOW}未找到${C_RESET}"
+	[ -s /etc/config/passwall2 ] && config_state="${C_GREEN}已配置${C_RESET}"
+	firewall_state="${C_YELLOW}未配置${C_RESET}"
+	if [ -n "$(uci -q get firewall.passwall2.path 2>/dev/null || true)" ]; then
+		firewall_state="${C_GREEN}已接入${C_RESET}"
+	fi
+
+	ui_title "PassWall2 状态"
+	ui_kv "包管理器" "$PM"
+	ui_kv "安装版本" "${cur:-${C_RED}未安装${C_RESET}}"
+	ui_kv "中文语言" "${i18n_version:-${C_YELLOW}未安装${C_RESET}}"
+	ui_kv "sing-box" "$core_state"
+	ui_kv "运行状态" "$service_state"
+	ui_kv "开机启动" "$boot_state"
+	ui_kv "配置文件" "$config_state"
+	ui_kv "防火墙" "$firewall_state"
+
+	missing=""
+	for dependency in $DEPS; do
+		pkg_installed "$dependency" || missing="$missing $dependency"
+	done
+	ui_kv "依赖" "${missing:-${C_GREEN}全部正常${C_RESET}}"
+
+	if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
+		if fetch_release; then
+			latest="$(tag_to_pkgver "$RELEASE_TAG")"
+			if [ -n "$cur" ] && [ "$cur" = "$latest" ]; then
+				ui_kv "上游版本" "${C_GREEN}已是最新${C_RESET} ($latest)"
+			else
+				ui_kv "上游版本" "${C_YELLOW}可更新${C_RESET} ($latest)"
+			fi
+		else
+			ui_kv "上游版本" "${C_YELLOW}暂时无法检查${C_RESET}"
+		fi
+	else
+		ui_kv "上游版本" "${C_YELLOW}缺少下载工具${C_RESET}"
+	fi
+	ui_rule
+}
+
 # ---------- 安装 ----------
 do_install() {
+	require_downloader
 	cur="$(pkg_version "$PKG_MAIN" || true)"
+	if [ "$UPDATE_ONLY" = 1 ] && [ -z "$cur" ]; then
+		die "PassWall2 尚未安装，请先选择“安装”"
+	fi
 	fetch_release || die "无法获取 release 信息（网络或仓库不可达）"
 	want="$(tag_to_pkgver "$RELEASE_TAG")"
 	log "release: $RELEASE_TAG（包版本 $want）"
@@ -767,7 +866,11 @@ do_install() {
 	install_dependencies
 
 	if [ "$cur" = "$want" ] && [ "$FORCE" != 1 ]; then
-		log "PassWall2 已经是最新版本（--force 可强制重装）"
+		ui_title "无需更新"
+		ui_kv "当前版本" "$cur"
+		ui_kv "上游版本" "$want"
+		ui_kv "状态" "${C_GREEN}已是最新${C_RESET}"
+		ui_rule
 		exit 0
 	fi
 
@@ -812,11 +915,18 @@ EOF
 	log "安装完成: $new"
 	refresh_luci
 	log "已有配置 /etc/config/passwall2 已保留；首次安装会生成默认配置"
-	log "打开 LuCI → 服务 → PassWall2；界面若仍显示旧版本，Ctrl+F5 刷新"
+	ui_title "PassWall2 安装完成"
+	ui_kv "安装版本" "$new"
+	ui_kv "sing-box" "$(core_version)"
+	ui_kv "配置文件" "${C_GREEN}已保留或已生成${C_RESET}"
+	ui_kv "访问位置" "LuCI → 服务 → PassWall2"
+	ui_kv "提示" "页面未更新时按 Ctrl+F5"
+	ui_rule
 }
 
 # ---------- 卸载 ----------
 do_uninstall() {
+	ui_title "PassWall2 零残留卸载"
 	log "零残留卸载 PassWall2"
 	log "停止服务并禁用自启动"
 	stop_passwall_services
@@ -838,7 +948,75 @@ do_uninstall() {
 	reload_firewall
 	refresh_luci
 	verify_passwall_removed
-	log "卸载完成，未发现 PassWall2 配置、文件或防火墙残留"
+	ui_title "PassWall2 卸载完成"
+	ui_kv "软件包" "${C_GREEN}已删除${C_RESET}"
+	ui_kv "配置与文件" "${C_GREEN}已删除${C_RESET}"
+	ui_kv "防火墙规则" "${C_GREEN}已清除${C_RESET}"
+	ui_kv "残留检查" "${C_GREEN}通过${C_RESET}"
+	ui_rule
+}
+
+interactive_menu() {
+	while :; do
+		printf '\n'
+		ui_title "PassWall2 管理器"
+		printf '  %s1%s  安装 PassWall2\n' "$C_GREEN" "$C_RESET"
+		printf '  %s2%s  更新 PassWall2\n' "$C_CYAN" "$C_RESET"
+		printf '  %s3%s  查看运行状态\n' "$C_YELLOW" "$C_RESET"
+		printf '  %s4%s  零残留卸载\n' "$C_RED" "$C_RESET"
+		printf '  %s0%s  退出\n' "$C_BOLD" "$C_RESET"
+		ui_rule
+		printf '  请选择 [0-4]: '
+		read -r choice
+		read_status=$?
+		if [ "$read_status" -ne 0 ]; then
+			printf '\n'
+			exit 0
+		fi
+		case "$choice" in
+			1)
+				MODE="install"
+				UPDATE_ONLY=0
+				return 0
+				;;
+			2)
+				MODE="update"
+				UPDATE_ONLY=1
+				return 0
+				;;
+			3)
+				MODE="status"
+				return 0
+				;;
+			4)
+				printf '\n%s即将执行零残留卸载：配置、包、依赖、LuCI、服务、定时任务和防火墙规则都会删除。%s\n' \
+					"$C_RED" "$C_RESET"
+				printf '输入 YES 确认卸载，其他内容取消: '
+				read -r confirm
+				read_status=$?
+				if [ "$read_status" -ne 0 ]; then
+					printf '\n'
+					exit 0
+				fi
+				case "$confirm" in
+					YES|yes|Yes|是|y|Y)
+						MODE="uninstall"
+						return 0
+						;;
+					*)
+						printf '%s已取消卸载。%s\n' "$C_YELLOW" "$C_RESET"
+						;;
+				esac
+				;;
+			0|q|Q|quit|exit)
+				printf '%s已退出。%s\n' "$C_CYAN" "$C_RESET"
+				exit 0
+				;;
+			*)
+				printf '%s无效选项，请输入 0-4。%s\n' "$C_RED" "$C_RESET"
+				;;
+		esac
+	done
 }
 
 # ---------- 主流程 ----------
@@ -899,8 +1077,13 @@ if ! acquire_lock; then
 	die "已有另一个 PassWall2 任务正在运行（$LOCKDIR）；确认没有在跑后可用 --unlock 清理"
 fi
 
+if [ "$MODE" = "menu" ]; then
+	interactive_menu
+fi
+
 case "$MODE" in
 	check) do_check ;;
-	install) do_install ;;
+	install|update) do_install ;;
+	status) do_status ;;
 	uninstall|purge) do_uninstall ;;
 esac
