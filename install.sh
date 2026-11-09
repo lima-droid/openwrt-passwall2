@@ -2,8 +2,8 @@
 #
 # PassWall2 一键安装 / 更新脚本（lima-droid/openwrt-passwall2 分支）
 #
-# 只做一件事：从本仓库的 GitHub Release 里取 luci-app-passwall2 + 中文语言包，
-# 用系统自带的包管理器装上；依赖（tcping/geoview/v2ray-geoip/v2ray-geosite）缺失时自动补。
+# 安装 / 更新 / 卸载 PassWall2。安装时从本仓库 Release 获取主包、中文语言包，
+# 自动补齐 sing-box 和依赖；卸载时删除配置、运行状态、防火墙规则和所有专用文件。
 #
 # 用法：
 #   sh install.sh                 # 安装 / 更新到最新 release
@@ -11,8 +11,8 @@
 #   sh install.sh --version TAG   # 安装指定版本，例如 --version 26.11.3-1
 #   sh install.sh --force         # 版本相同也重装
 #   sh install.sh --unlock        # 清理残留的安装锁
-#   sh install.sh --uninstall     # 卸载（保留 /etc/config/passwall2）
-#   sh install.sh --purge         # 卸载并删除配置
+#   sh install.sh --uninstall     # 零残留卸载（兼容 --purge）
+#   sh install.sh --purge         # 同 --uninstall
 #   sh install.sh --help          # 显示说明
 #
 # 一行执行：
@@ -29,6 +29,7 @@ DEPS="tcping geoview v2ray-geoip v2ray-geosite"
 CORE_PKG="sing-box"
 
 LOCKDIR="/tmp/passwall2-install.lock"
+STATE_FILE="/etc/passwall2-installer.state"
 TMPFILES=""
 LOCK_OWNED=0
 LOCK_TOKEN=""
@@ -48,8 +49,8 @@ usage() {
   sh install.sh --version TAG   # 安装指定版本（如 26.11.3-1）
   sh install.sh --force         # 已是最新也重装
   sh install.sh --unlock        # 清理残留的安装锁
-  sh install.sh --uninstall     # 卸载（保留配置）
-  sh install.sh --purge         # 卸载并删除配置
+  sh install.sh --uninstall     # 零残留卸载（含配置和防火墙）
+  sh install.sh --purge         # 同 --uninstall
 EOF
 }
 
@@ -107,9 +108,13 @@ esac
 
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "缺少命令: $1"; }
 for c in sed grep awk head basename mktemp sha256sum; do need_cmd "$c"; done
-if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-	die "缺少 curl 或 wget"
-fi
+case "$MODE" in
+	install|check)
+		if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+			die "缺少 curl 或 wget"
+		fi
+		;;
+esac
 
 [ -f /etc/openwrt_release ] || die "未检测到 /etc/openwrt_release，这不像是 OpenWrt 系统"
 
@@ -146,6 +151,282 @@ refresh_luci() {
 	if [ -x /etc/init.d/rpcd ]; then
 		/etc/init.d/rpcd restart >/dev/null 2>&1 || warn "rpcd 重启失败"
 	fi
+}
+
+state_get() {
+	[ -f "$STATE_FILE" ] || return 0
+	sed -n "s/^$1=//p" "$STATE_FILE" | tail -n1
+}
+
+stop_passwall_services() {
+	for init in passwall2 passwall2_server; do
+		[ -x "/etc/init.d/$init" ] || continue
+		"/etc/init.d/$init" disable >/dev/null 2>&1 || true
+		if command -v timeout >/dev/null 2>&1; then
+			timeout 30 "/etc/init.d/$init" stop >/dev/null 2>&1 || true
+		else
+			"/etc/init.d/$init" stop >/dev/null 2>&1 || true
+		fi
+	done
+
+	for pattern in \
+		'/usr/share/passwall2/' \
+		'/tmp/etc/passwall2/' \
+		'/var/etc/passwall2/' \
+		'passwall2_server/bin/'; do
+		for pid in $(pgrep -f "$pattern" 2>/dev/null || true); do
+			[ "$pid" != "$$" ] && kill "$pid" >/dev/null 2>&1 || true
+		done
+	done
+	sleep 2
+	for pattern in \
+		'/usr/share/passwall2/' \
+		'/tmp/etc/passwall2/' \
+		'/var/etc/passwall2/' \
+		'passwall2_server/bin/'; do
+		for pid in $(pgrep -f "$pattern" 2>/dev/null || true); do
+			[ "$pid" != "$$" ] && kill -9 "$pid" >/dev/null 2>&1 || true
+		done
+	done
+}
+
+clean_iptables_chains() {
+	ipt_cmd="$1"
+	command -v "$ipt_cmd" >/dev/null 2>&1 || return 0
+	for table in filter nat mangle raw; do
+		chains="$("$ipt_cmd" -t "$table" -S 2>/dev/null |
+			sed -n 's/^-N \([^ ]*\).*/\1/p' |
+			grep -Ei 'psw2|passwall' || true)"
+		for chain in $chains; do
+			for parent in INPUT FORWARD OUTPUT PREROUTING POSTROUTING; do
+				while "$ipt_cmd" -t "$table" -C "$parent" -j "$chain" >/dev/null 2>&1; do
+					"$ipt_cmd" -t "$table" -D "$parent" -j "$chain" >/dev/null 2>&1 || break
+				done
+			done
+			"$ipt_cmd" -t "$table" -F "$chain" >/dev/null 2>&1 || true
+			"$ipt_cmd" -t "$table" -X "$chain" >/dev/null 2>&1 || true
+		done
+	done
+}
+
+clean_passwall_network_state() {
+	if command -v nft >/dev/null 2>&1; then
+		nft list tables 2>/dev/null |
+			awk '$3 == "passwall2" {print $2, $3}' |
+			while read -r family table; do
+				nft delete table "$family" "$table" >/dev/null 2>&1 || true
+			done || true
+	fi
+
+	if command -v ipset >/dev/null 2>&1; then
+		ipset list -n 2>/dev/null |
+			grep -Ei '^(psw2|passwall)' |
+			while read -r setname; do
+				ipset destroy "$setname" >/dev/null 2>&1 || true
+			done || true
+	fi
+
+	clean_iptables_chains iptables
+	clean_iptables_chains ip6tables
+	clean_iptables_chains iptables-legacy
+	clean_iptables_chains ip6tables-legacy
+}
+
+clean_passwall_uci() {
+	for sec in $(uci -q show firewall 2>/dev/null |
+		sed -n 's/^firewall\.\([^.]*\)=.*/\1/p'); do
+		case "$sec" in
+			*passwall2*) uci -q delete "firewall.$sec" || true ;;
+			*)
+				case "$(uci -q get "firewall.$sec.path" 2>/dev/null || true)" in
+					*passwall2*) uci -q delete "firewall.$sec" || true ;;
+				esac
+				;;
+		esac
+	done
+	uci -q delete firewall.passwall2 || true
+	uci -q delete firewall.passwall2_server || true
+
+	for sec in $(uci -q show ucitrack 2>/dev/null |
+		sed -n 's/^ucitrack\.\([^.]*\)=.*/\1/p'); do
+		case "$sec" in
+			*passwall2*) uci -q delete "ucitrack.$sec" || true ;;
+		esac
+	done
+	uci -q delete ucitrack.@passwall2[-1] || true
+	uci -q delete ucitrack.@passwall2_server[-1] || true
+
+	for mount in $(uci -q get 'dhcp.@dnsmasq[0].addnmount' 2>/dev/null || true); do
+		case "$mount" in
+			*passwall2*) uci -q del_list "dhcp.@dnsmasq[0].addnmount=$mount" || true ;;
+		esac
+	done
+	uci -q delete 'dhcp.@dnsmasq[0].localuse' || true
+	uci -q delete 'uhttpd.main.max_requests' || true
+
+	for config in firewall ucitrack dhcp uhttpd; do
+		[ -f "/etc/config/$config" ] && uci -q commit "$config" || true
+	done
+}
+
+clean_passwall_crontab() {
+	[ -f /etc/crontabs/root ] || return 0
+	sed -i '/passwall2/d' /etc/crontabs/root
+	if [ -x /etc/init.d/cron ]; then
+		/etc/init.d/cron restart >/dev/null 2>&1 || true
+	fi
+}
+
+reload_firewall() {
+	if [ -x /etc/init.d/firewall ]; then
+		/etc/init.d/firewall reload >/dev/null 2>&1 ||
+			/etc/init.d/firewall restart >/dev/null 2>&1 || true
+	fi
+}
+
+remove_passwall_packages() {
+	case "$PM" in
+		opkg)
+			packages="$(opkg list-installed 2>/dev/null |
+				awk '$1 == "luci-app-passwall2" || $1 ~ /^luci-i18n-passwall2-/ {print $1}')"
+			;;
+		apk)
+			packages="$(apk list --installed --manifest 2>/dev/null |
+				awk '$1 == "luci-app-passwall2" || $1 ~ /^luci-i18n-passwall2-/ {print $1}')"
+			;;
+	esac
+	[ -n "$packages" ] || return 0
+	pkg_remove $packages >/dev/null 2>&1 ||
+		while read -r package; do
+			[ -n "$package" ] || continue
+			pkg_installed "$package" || continue
+			case "$PM" in
+				opkg) opkg remove --force-depends "$package" >/dev/null 2>&1 || true ;;
+				apk) apk del "$package" >/dev/null 2>&1 || true ;;
+			esac
+		done <<EOF
+$(printf '%s\n' "$packages" | tr ' ' '\n')
+EOF
+}
+
+remove_passwall_files() {
+	rm -rf \
+		/usr/share/passwall2 \
+		/usr/share/v2ray \
+		/usr/share/sing-box \
+		/etc/sing-box \
+		/usr/lib/lua/luci/passwall2 \
+		/usr/lib/lua/luci/model/cbi/passwall2 \
+		/usr/lib/lua/luci/view/passwall2 \
+		/www/luci-static/resources/view/passwall2 \
+		/tmp/etc/passwall2 \
+		/tmp/etc/passwall2_* \
+		/var/etc/passwall2 \
+		/var/etc/passwall2_* \
+		/tmp/luci-modulecache \
+		/tmp/passwall2-core.* 2>/dev/null || true
+	rm -f \
+		/etc/config/passwall2 \
+		/etc/config/passwall2_* \
+		/etc/config/passwall2-* \
+		/etc/passwall2_template.conf \
+		/etc/init.d/passwall2 \
+		/etc/init.d/passwall2_server \
+		/etc/hotplug.d/iface/98-passwall2 \
+		/etc/hotplug.d/ntp/30-passwall2-resync \
+		/usr/lib/lua/luci/controller/passwall2.lua \
+		/usr/lib/lua/luci/i18n/passwall2.*.lmo \
+		/usr/share/rpcd/acl.d/luci-app-passwall2.json \
+		/usr/share/ucitrack/luci-app-passwall2.json \
+		/usr/share/ucitrack/luci-app-passwall2-server.json \
+		/var/etc/passwall2.include \
+		/tmp/passwall2-release.* \
+		/tmp/passwall2-singbox.* \
+		/tmp/passwall2-core.* \
+		/tmp/check-luci-app-passwall2* \
+		/tmp/check-luci-i18n-passwall2* \
+		/tmp/pw2.sh \
+		"$STATE_FILE" 2>/dev/null || true
+	rm -rf /tmp/log/passwall2* /var/log/passwall2* \
+		/tmp/dnsmasq.d/*passwall2* /tmp/dnsmasq.d/passwall2* \
+		/var/lock/*passwall2* /var/run/*passwall2* 2>/dev/null || true
+	rm -f /etc/rc.d/*passwall2* /etc/hotplug.d/*/*passwall2* \
+		/etc/uci-defaults/*passwall2* \
+		/usr/share/luci/menu.d/*passwall2* \
+		/usr/lib/opkg/info/*passwall2* \
+		/lib/apk/packages/*passwall2* 2>/dev/null || true
+	rm -rf /tmp/luci-* /tmp/.luci* /tmp/luci-indexcache* 2>/dev/null || true
+}
+
+remove_passwall_dependencies() {
+	for package in $DEPS; do
+		pkg_installed "$package" || continue
+		if ! pkg_remove "$package" >/dev/null 2>&1; then
+			case "$PM" in
+				opkg) opkg remove --force-depends "$package" >/dev/null 2>&1 || true ;;
+				apk) apk --force-broken-world del "$package" >/dev/null 2>&1 || true ;;
+			esac
+		fi
+	done
+	if pkg_installed "$CORE_PKG"; then
+		if ! pkg_remove "$CORE_PKG" >/dev/null 2>&1; then
+			case "$PM" in
+				opkg) opkg remove --force-depends "$CORE_PKG" >/dev/null 2>&1 || true ;;
+				apk) apk --force-broken-world del "$CORE_PKG" >/dev/null 2>&1 || true ;;
+			esac
+		fi
+	fi
+	[ "$(command -v "$CORE_PKG" 2>/dev/null || true)" = "/usr/bin/$CORE_PKG" ] &&
+		rm -f "/usr/bin/$CORE_PKG"
+}
+
+verify_passwall_removed() {
+	residual=""
+	case "$PM" in
+		opkg) installed="$(opkg list-installed 2>/dev/null |
+			awk '$1 == "luci-app-passwall2" || $1 ~ /^luci-i18n-passwall2-/ {print $1}')" ;;
+		apk) installed="$(apk list --installed --manifest 2>/dev/null |
+			awk '$1 == "luci-app-passwall2" || $1 ~ /^luci-i18n-passwall2-/ {print $1}')" ;;
+	esac
+	[ -z "$installed" ] || residual="$residual packages:$installed"
+	for package in $DEPS "$CORE_PKG"; do
+		pkg_installed "$package" && residual="$residual dependency:$package"
+	done
+	[ -e "/usr/bin/$CORE_PKG" ] && residual="$residual /usr/bin/$CORE_PKG"
+
+	for path in \
+		/etc/config/passwall2 \
+		/etc/config/passwall2_server \
+		/etc/passwall2_template.conf \
+		/etc/init.d/passwall2 \
+		/etc/init.d/passwall2_server \
+		/usr/share/passwall2 \
+		/usr/share/v2ray \
+		/usr/share/sing-box \
+		/etc/sing-box \
+		/usr/lib/lua/luci/passwall2 \
+		/usr/lib/lua/luci/controller/passwall2.lua \
+		/usr/lib/lua/luci/model/cbi/passwall2 \
+		/usr/lib/lua/luci/view/passwall2 \
+		/usr/share/rpcd/acl.d/luci-app-passwall2.json \
+		/usr/share/ucitrack/luci-app-passwall2.json \
+		/usr/share/ucitrack/luci-app-passwall2-server.json \
+		/var/etc/passwall2.include \
+		/var/etc/passwall2 \
+		/tmp/etc/passwall2; do
+		[ -e "$path" ] && residual="$residual $path"
+	done
+	if uci -q show firewall 2>/dev/null | grep -q 'passwall2'; then
+		residual="$residual firewall-uci"
+	fi
+	if command -v nft >/dev/null 2>&1 &&
+		nft list tables 2>/dev/null | grep -q ' passwall2$'; then
+		residual="$residual nft-passwall2"
+	fi
+	if [ -f /etc/crontabs/root ] && grep -q 'passwall2' /etc/crontabs/root; then
+		residual="$residual crontab"
+	fi
+	[ -z "$residual" ] || die "卸载后发现残留:$residual"
 }
 
 # ---------- 下载 ----------
@@ -536,20 +817,28 @@ EOF
 
 # ---------- 卸载 ----------
 do_uninstall() {
-	log "卸载 PassWall2"
-	if ! pkg_installed "$PKG_MAIN"; then
-		log "未安装 $PKG_MAIN，无需卸载"
-	else
-		pkg_remove "$PKG_MAIN" || warn "卸载 $PKG_MAIN 失败（可能有包依赖它）"
-	fi
-	pkg_installed "$PKG_I18N" && { pkg_remove "$PKG_I18N" || warn "卸载语言包失败"; }
-	if [ "$MODE" = purge ]; then
-		rm -f /etc/config/passwall2 && log "已删除 /etc/config/passwall2"
-	else
-		log "保留 /etc/config/passwall2（--purge 可删除）"
-	fi
+	log "零残留卸载 PassWall2"
+	log "停止服务并禁用自启动"
+	stop_passwall_services
+	log "清理防火墙和网络规则"
+	clean_passwall_uci
+	clean_passwall_network_state
+	clean_passwall_crontab
+	reload_firewall
+	log "移除 PassWall2 软件包"
+	remove_passwall_packages
+	log "删除配置、LuCI、运行状态和临时文件"
+	remove_passwall_files
+	log "清理安装器补装的组件"
+	remove_passwall_dependencies
+	# Package removal and firewall reload can regenerate cache files, so flush again.
+	clean_passwall_uci
+	clean_passwall_network_state
+	remove_passwall_files
+	reload_firewall
 	refresh_luci
-	log "卸载完成"
+	verify_passwall_removed
+	log "卸载完成，未发现 PassWall2 配置、文件或防火墙残留"
 }
 
 # ---------- 主流程 ----------

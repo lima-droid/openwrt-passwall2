@@ -49,13 +49,19 @@ tcping、geoview、v2ray-geoip、v2ray-geosite。已有 `/etc/config/passwall2` 
 | `--version 26.11.3-1` | 安装指定版本 |
 | `--force` | 已是最新也重装 |
 | `--unlock` | 清理残留的安装锁 |
-| `--uninstall` | 卸载（保留配置） |
-| `--purge` | 卸载并删除配置 |
+| `--uninstall` | 零残留卸载：配置、包、文件、服务、定时任务和防火墙规则全部删除 |
+| `--purge` | 同 `--uninstall`，保留旧参数兼容 |
 
 用 `curl | sh` 形式时这样传参：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh | sh -s -- --check
+```
+
+零残留卸载：
+
+```bash
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/lima-droid/openwrt-passwall2/main/install.sh)" sh --uninstall
 ```
 
 如果 `raw.githubusercontent.com` 报 `TLS connect error`，换镜像取同一份脚本：
