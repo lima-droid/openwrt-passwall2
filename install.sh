@@ -212,7 +212,12 @@ stop_passwall_services() {
 		'/var/etc/passwall2/' \
 		'passwall2_server/bin/'; do
 		for pid in $(pgrep -f "$pattern" 2>/dev/null || true); do
-			[ "$pid" != "$$" ] && kill "$pid" >/dev/null 2>&1 || true
+			[ "$pid" = "$$" ] && continue
+			exe="$(readlink "/proc/$pid/exe" 2>/dev/null || true)"
+			case "${exe##*/}" in
+				sh|ash|busybox|curl|wget|grep|pgrep|sed|awk) continue ;;
+			esac
+			kill "$pid" >/dev/null 2>&1 || true
 		done
 	done
 	sleep 2
@@ -222,7 +227,12 @@ stop_passwall_services() {
 		'/var/etc/passwall2/' \
 		'passwall2_server/bin/'; do
 		for pid in $(pgrep -f "$pattern" 2>/dev/null || true); do
-			[ "$pid" != "$$" ] && kill -9 "$pid" >/dev/null 2>&1 || true
+			[ "$pid" = "$$" ] && continue
+			exe="$(readlink "/proc/$pid/exe" 2>/dev/null || true)"
+			case "${exe##*/}" in
+				sh|ash|busybox|curl|wget|grep|pgrep|sed|awk) continue ;;
+			esac
+			kill -9 "$pid" >/dev/null 2>&1 || true
 		done
 	done
 }
@@ -364,6 +374,7 @@ remove_passwall_files() {
 		/tmp/passwall2-core.* 2>/dev/null || true
 	rm -f \
 		/etc/config/passwall2 \
+		/etc/config/passwall2_server \
 		/etc/config/passwall2_* \
 		/etc/config/passwall2-* \
 		/etc/passwall2_template.conf \
@@ -377,6 +388,8 @@ remove_passwall_files() {
 		/usr/share/ucitrack/luci-app-passwall2.json \
 		/usr/share/ucitrack/luci-app-passwall2-server.json \
 		/var/etc/passwall2.include \
+		/var/etc/config/passwall2 \
+		/var/etc/config/passwall2_* \
 		/tmp/passwall2-release.* \
 		/tmp/passwall2-singbox.* \
 		/tmp/passwall2-core.* \
@@ -389,10 +402,12 @@ remove_passwall_files() {
 		/var/lock/*passwall2* /var/run/*passwall2* 2>/dev/null || true
 	rm -f /etc/rc.d/*passwall2* /etc/hotplug.d/*/*passwall2* \
 		/etc/uci-defaults/*passwall2* \
+		/etc/istore/uci-defaults_bak/*passwall2* \
 		/usr/share/luci/menu.d/*passwall2* \
 		/usr/lib/opkg/info/*passwall2* \
 		/lib/apk/packages/*passwall2* 2>/dev/null || true
 	rm -rf /tmp/luci-* /tmp/.luci* /tmp/luci-indexcache* 2>/dev/null || true
+	find /tmp -iname '*passwall2*' -exec rm -rf {} + 2>/dev/null || true
 }
 
 remove_passwall_dependencies() {
@@ -414,7 +429,7 @@ remove_passwall_dependencies() {
 		fi
 	fi
 	[ "$(command -v "$CORE_PKG" 2>/dev/null || true)" = "/usr/bin/$CORE_PKG" ] &&
-		rm -f "/usr/bin/$CORE_PKG"
+		rm -f "/usr/bin/$CORE_PKG" || true
 }
 
 verify_passwall_removed() {
@@ -449,8 +464,12 @@ verify_passwall_removed() {
 		/usr/share/ucitrack/luci-app-passwall2.json \
 		/usr/share/ucitrack/luci-app-passwall2-server.json \
 		/var/etc/passwall2.include \
+		/var/etc/config/passwall2 \
 		/var/etc/passwall2 \
 		/tmp/etc/passwall2; do
+		[ -e "$path" ] && residual="$residual $path"
+	done
+	for path in /etc/istore/uci-defaults_bak/*passwall2*; do
 		[ -e "$path" ] && residual="$residual $path"
 	done
 	if uci -q show firewall 2>/dev/null | grep -q 'passwall2'; then
