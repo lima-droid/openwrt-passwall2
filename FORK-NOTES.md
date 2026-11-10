@@ -60,8 +60,13 @@ Daily sync is done by `.github/workflows/sync-upstream.yml`:
 2. run `tools/strip_xray.py` on the clone
 3. run `tools/check_tree.py` (no remaining `xray` references, every `.lua` parses,
    every `.json` is valid)
-4. `rsync` the result over this repo (keeping `tools/`, `FORK-NOTES.md`, the sync workflow)
+4. `rsync` the result over this repo (keeping `tools/`, documentation, and the
+   two fork-owned workflows)
 5. commit + push, or open an issue labelled `sync-failure` when a rule no longer matches
+
+The build workflow remains fork-owned because GitHub's built-in `GITHUB_TOKEN`
+cannot update workflow files. Upstream application changes are still synced in
+full; CI-only changes require a deliberate fork workflow update.
 
 ### When the sync job fails
 

@@ -31,13 +31,13 @@ AGENTS.md
 FORK-NOTES.md
 tools/
 .github/workflows/sync-upstream.yml
+.github/workflows/Auto compile with openwrt sdk.yml
 ```
 
 The generated application tree is:
 
 ```text
 luci-app-passwall2/
-.github/workflows/Auto compile with openwrt sdk.yml
 ```
 
 Never make a persistent change only in the generated application tree when the
@@ -48,6 +48,12 @@ tools/strip_xray.py
 ```
 
 and then update the generated tree as well.
+
+The build workflow is fork-owned and must not be copied from upstream during
+sync. GitHub's built-in `GITHUB_TOKEN` cannot push changes to workflow files
+unless the workflow push originates from a token with the dedicated Workflows
+permission. Keeping this file fork-owned prevents successful source syncs from
+failing at the final push step.
 
 ## Required Fork Customizations
 

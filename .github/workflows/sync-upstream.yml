@@ -61,6 +61,7 @@ jobs:
             --exclude '/install.sh' \
             --exclude 'FORK-NOTES.md' \
             --exclude '.github/workflows/sync-upstream.yml' \
+            --exclude '.github/workflows/Auto compile with openwrt sdk.yml' \
             /tmp/upstream/ ./
           test -x install.sh
           sh -n install.sh
