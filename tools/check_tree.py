@@ -26,6 +26,7 @@ BAD = []
 # checked. CI runs this against a plain upstream clone, where these paths do not exist.
 IGNORE = (
     "tools/",
+    "AGENTS.md",
     "README.md",
     "FORK-NOTES.md",
     ".github/workflows/sync-upstream.yml",
