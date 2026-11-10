@@ -551,12 +551,6 @@ def rules_api(tree):
     tree.resub(SINGBOX_UTIL, r'--兼容xray "域名\+DNS" 格式ech', "--兼容 \"域名+DNS\" 格式ech", expect=1)
     tree.sub(
         SINGBOX_UTIL,
-        "-- For compatibility with Xray-core, set it to Sec-WebSocket-Protocol. It needs to be consistent with the server.",
-        "-- Sec-WebSocket-Protocol header, it needs to be consistent with the server.",
-        count=2,
-    )
-    tree.sub(
-        SINGBOX_UTIL,
         "-- There is no additional encryption support: it's essentially re-encryption. And Xray-core is incompatible with v2ray-core here.",
         "-- There is no additional encryption support: it's essentially re-encryption.",
         count=2,
