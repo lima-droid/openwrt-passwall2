@@ -57,6 +57,7 @@ jobs:
           rsync -a --delete \
             --exclude '.git' \
             --exclude 'tools' \
+            --exclude '/AGENTS.md' \
             --exclude '/install.sh' \
             --exclude 'FORK-NOTES.md' \
             --exclude '.github/workflows/sync-upstream.yml' \
