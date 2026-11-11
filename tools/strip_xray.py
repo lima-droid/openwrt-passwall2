@@ -450,7 +450,7 @@ def rules_lua(tree):
     tree.drop_lines(SUB, r"^local has_xray = api\.finded_com\(\"xray\"\)$", 1)
 
     # 2. subscription: default core table loses its {has_xray,"xray"} entries
-    tree.resub(SUB, r',\{has_xray,"xray"\}', "", expect=3)
+    tree.resub(SUB, r',\{has_xray,"xray"\}', "", expect=4)
     tree.resub(SUB, r'\{has_xray,"xray"\},', "", expect=2)
     tree.resub(SUB, r'^\t\["xray"\] = has_xray,\n', "", expect=1, flags=re.M)
 
@@ -460,6 +460,17 @@ def rules_lua(tree):
 
     # 4. transport helper expressions
     tree.resub(SUB, r'\(result\.type == "Xray"\) and "xhttp" or "http"', '"http"', expect=4)
+
+    # 5. WireGuard / socks / http imports: only sing-box is left, so the
+    #    transport default and the skip messages lose their Xray half
+    tree.resub(
+        SUB,
+        r'result\.transport = result\.type == "Xray" and "raw" or "tcp"',
+        'result.transport = "tcp"',
+        expect=1,
+    )
+    tree.sub(SUB, ', "WireGuard", "Xray / sing-box")', ', "WireGuard", "sing-box")')
+    tree.sub(SUB, 'szType, "Xray / sing-box")', 'szType, "sing-box")')
 
 
 HTML = APP + "/luasrc/view/passwall2/node_config/link_share_man.htm"
@@ -479,12 +490,15 @@ SHUNT_HTM = APP + "/luasrc/view/passwall2/rule/shunt_rule_list.htm"
 def rules_html(tree):
     """LuCI template: Lua header + embedded JS."""
     tree.drop_lines(HTML, r'^local has_xray = api\.finded_com\("xray"\)$', 1)
-    tree.resub(HTML, r',\{has_xray,"xray"\}', "", expect=2)
+    tree.resub(HTML, r',\{has_xray,"xray"\}', "", expect=3)
     tree.resub(HTML, r'\{has_xray,"xray"\},', "", expect=2)
     tree.resub(HTML, r', \{has_xray,"xray"\}', "", expect=1)
     tree.drop_lines(HTML, r'^\tlet has_xray = "<%=has_xray%>"$', 1)
 
     prune_js_arms(tree, HTML)
+
+    # WireGuard / socks / http imports always target sing-box now
+    tree.sub(HTML, 'dom_prefix === "xray_" ? "raw" : "tcp"', '"tcp"')
 
     # import helper: xray is no longer a fallback for SS plugins
     tree.sub(
