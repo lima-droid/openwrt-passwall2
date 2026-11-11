@@ -85,6 +85,36 @@ class Tree:
         self.save(rel, rx.sub(new, text))
         self.applied.append("resub %s" % rel)
 
+    def sub_all(self, rel, old, new, at_least=1):
+        """Exact substring replacement for every hit; must hit at least `at_least`.
+
+        Used for mechanical "drop the Xray entry" rewrites, where a new upstream
+        protocol must not break the daily sync. Residue is still caught by
+        tools/check_tree.py, which rejects any remaining xray reference.
+        """
+        text = self.text(rel)
+        n = text.count(old)
+        if n < at_least:
+            raise RuleError(
+                "%s: expected at least %d hit(s), got %d\n  anchor: %r"
+                % (rel, at_least, n, old)
+            )
+        self.save(rel, text.replace(old, new))
+        self.applied.append("sub_all %s (%d)" % (rel, n))
+
+    def resub_all(self, rel, pattern, new, at_least=1, flags=0):
+        """Regex replacement for every hit; must hit at least `at_least`."""
+        text = self.text(rel)
+        rx = re.compile(pattern, flags)
+        n = len(rx.findall(text))
+        if n < at_least:
+            raise RuleError(
+                "%s: regex hit %d time(s), expected at least %d\n  pattern: %s"
+                % (rel, n, at_least, pattern)
+            )
+        self.save(rel, rx.sub(new, text))
+        self.applied.append("resub_all %s (%d)" % (rel, n))
+
     def drop_lines(self, rel, pattern, expect, flags=0):
         """Delete whole lines matching `pattern`."""
         text = self.text(rel)
@@ -449,9 +479,16 @@ def rules_lua(tree):
     tree.drop_lines(OTHER, r"^local has_xray = api\.finded_com\(\"xray\"\)$", 1)
     tree.drop_lines(SUB, r"^local has_xray = api\.finded_com\(\"xray\"\)$", 1)
 
-    # 2. subscription: default core table loses its {has_xray,"xray"} entries
-    tree.resub(SUB, r',\{has_xray,"xray"\}', "", expect=4)
-    tree.resub(SUB, r'\{has_xray,"xray"\},', "", expect=2)
+    # 2. subscription: default core table loses its {has_xray,"xray"} entries.
+    #    Count-agnostic on purpose: upstream adds a protocol (= one more entry)
+    #    every few weeks and that must not break the daily sync. Trailing and
+    #    leading entries plus the spaced variant are all covered.
+    tree.resub_all(
+        SUB,
+        r'(?:\{has_xray,"xray"\},\s*|,\s*\{has_xray,"xray"\})',
+        "",
+        at_least=1,
+    )
     tree.resub(SUB, r'^\t\["xray"\] = has_xray,\n', "", expect=1, flags=re.M)
 
     # 3. com.lua: drop the Xray component registration
@@ -459,18 +496,18 @@ def rules_lua(tree):
     tree.resub(COM, r"_M\.xray = \{.*?\n\}\n\n", "", expect=1, flags=re.S)
 
     # 4. transport helper expressions
-    tree.resub(SUB, r'\(result\.type == "Xray"\) and "xhttp" or "http"', '"http"', expect=4)
+    tree.resub_all(
+        SUB, r'\(result\.type == "Xray"\) and "xhttp" or "http"', '"http"', at_least=1
+    )
 
     # 5. WireGuard / socks / http imports: only sing-box is left, so the
     #    transport default and the skip messages lose their Xray half
-    tree.resub(
+    tree.resub_all(
         SUB,
         r'result\.transport = result\.type == "Xray" and "raw" or "tcp"',
         'result.transport = "tcp"',
-        expect=1,
     )
-    tree.sub(SUB, ', "WireGuard", "Xray / sing-box")', ', "WireGuard", "sing-box")')
-    tree.sub(SUB, 'szType, "Xray / sing-box")', 'szType, "sing-box")')
+    tree.sub_all(SUB, '"Xray / sing-box"', '"sing-box"')
 
 
 HTML = APP + "/luasrc/view/passwall2/node_config/link_share_man.htm"
@@ -490,15 +527,18 @@ SHUNT_HTM = APP + "/luasrc/view/passwall2/rule/shunt_rule_list.htm"
 def rules_html(tree):
     """LuCI template: Lua header + embedded JS."""
     tree.drop_lines(HTML, r'^local has_xray = api\.finded_com\("xray"\)$', 1)
-    tree.resub(HTML, r',\{has_xray,"xray"\}', "", expect=3)
-    tree.resub(HTML, r'\{has_xray,"xray"\},', "", expect=2)
-    tree.resub(HTML, r', \{has_xray,"xray"\}', "", expect=1)
+    tree.resub_all(
+        HTML,
+        r'(?:\{has_xray,"xray"\},\s*|,\s*\{has_xray,"xray"\})',
+        "",
+        at_least=1,
+    )
     tree.drop_lines(HTML, r'^\tlet has_xray = "<%=has_xray%>"$', 1)
 
     prune_js_arms(tree, HTML)
 
     # WireGuard / socks / http imports always target sing-box now
-    tree.sub(HTML, 'dom_prefix === "xray_" ? "raw" : "tcp"', '"tcp"')
+    tree.sub_all(HTML, 'dom_prefix === "xray_" ? "raw" : "tcp"', '"tcp"')
 
     # import helper: xray is no longer a fallback for SS plugins
     tree.sub(
