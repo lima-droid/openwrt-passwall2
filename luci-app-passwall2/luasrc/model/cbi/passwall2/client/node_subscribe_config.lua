@@ -21,6 +21,7 @@ local trojan_type = {}
 local vmess_type = {}
 local vless_type = {}
 local hysteria2_type = {}
+local other_type = {}
 if has_ss_rust then
 	local s = "shadowsocks-rust"
 	table.insert(ss_type, s)
@@ -32,6 +33,7 @@ if has_singbox then
 	table.insert(vmess_type, s)
 	table.insert(vless_type, s)
 	table.insert(hysteria2_type, s)
+	table.insert(other_type, s)
 end
 local nodes_table = {}
 for k, e in ipairs(api.get_valid_nodes()) do
@@ -203,7 +205,18 @@ if #hysteria2_type > 0 then
 	for key, value in pairs(hysteria2_type) do
 		o:value(value)
 	end
+end
 
+if #other_type > 0 then
+	o = s:option(ListValue, "other_type", translatef("%s Node Use Type", translate("Other")))
+	o.default = "global"
+	o:value("global", translate("Use global config"))
+	for key, value in pairs(other_type) do
+		o:value(value)
+	end
+end
+
+if #hysteria2_type > 0 then
 	o = s:option(Value, "hysteria_up_mbps", "Hy/Hy2 " .. translate("Max upload Mbps"))
 	o.datatype = "uinteger"
 
