@@ -2,8 +2,10 @@
 #
 # PassWall2 一键安装 / 更新脚本（lima-droid/openwrt-passwall2 分支）
 #
-# 安装 / 更新 / 卸载 PassWall2。安装时从本仓库 Release 获取主包、中文语言包，
-# 自动补齐 sing-box 和依赖；卸载时删除配置、运行状态、防火墙规则和所有专用文件。
+# 安装 / 更新 / 卸载 PassWall2。安装时从本仓库 Release 获取主包、中文语言包
+# （本仓库 release 是精简版，只有这 4 个文件）；运行依赖不在 release 里：
+# sing-box 核心优先用软件源，其余依赖从上游同 tag 的架构包按需取出安装，
+# xray-core 永远不会被装。卸载时删除配置、运行状态、防火墙规则和所有专用文件。
 #
 # 用法：
 #   sh install.sh                 # 打开安装 / 更新 / 状态 / 卸载菜单
@@ -669,6 +671,7 @@ prepare_release_bundle() {
 	bundle_digests="$ASSET_DIGESTS"
 	bundle_source="PassWall2 release"
 
+	# 本仓库 release 是精简版，不发布架构依赖包；正常情况下这里会回退到上游同 tag。
 	if [ -z "$bundle_url" ]; then
 		upstream_json="$(mktemp /tmp/passwall2-upstream.XXXXXX)"
 		register_tmp "$upstream_json"
