@@ -110,7 +110,7 @@ jobs:
           # does not always resolve, so keep the refresh bounded and continue
           # with whatever indexes were updated.
           apt_opts="-o Acquire::Retries=2 -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=15"
-          timeout 420 sudo -E apt-get -qq $apt_opts update ||
+          timeout 240 sudo -E apt-get -qq $apt_opts update ||
             echo "::warning::apt update incomplete, continuing with the freshest indexes"
           pkgs=(
             ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential
@@ -127,7 +127,15 @@ jobs:
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
 
+      - name: Restore SDK cache
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: sdk-${{ hashFiles('.github/workflows/Auto compile with openwrt sdk.yml') }}
+
       - name: Initialization environment
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: |
           url_sdk="https://downloads.openwrt.org/snapshots/targets/x86/64/openwrt-sdk-x86-64_gcc-14.4.0_musl.Linux-x86_64.tar.zst"
           wget $url_sdk
@@ -188,6 +196,11 @@ jobs:
           echo "Patch application completed"
           #--------------------------------------end_patches--------------------------------------------
 
+      - name: Update passwall2 feed
+        run: |
+          cd sdk
+          ./scripts/feeds update passwall2
+
       - name: config
         id: config
         run: |
@@ -203,15 +216,19 @@ jobs:
         id: compile_apk
         run: |
           cd sdk
+          # cached SDK keeps Config-build.in mutated by the ipk pass; force apk back on
+          config_apk_line=$(grep -n "USE_APK" Config-build.in | awk -F ':' '{print $1}')
+          [ -n "$config_apk_line" ] && sed -i "$(expr ${config_apk_line} + 2)s/default n/default y/" Config-build.in
+          rm -rf bin/packages
           make defconfig
           echo "make package/luci-app-passwall2/{clean,compile} -j$(nproc)"
           make package/luci-app-passwall2/{clean,compile} -j$(nproc) V=s || make package/luci-app-passwall2/{clean,compile} -j1 V=s
+          rm -rf upload
           mkdir -p upload
           mv bin/packages/*/passwall2/luci-* upload/
           # lean release: keep zh-cn only
           rm -f upload/luci-i18n-passwall2-fa* upload/luci-i18n-passwall2-ru* \
             upload/luci-i18n-passwall2-zh-tw*
-          make clean
           cd upload
           echo "status=success" >> $GITHUB_OUTPUT
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
@@ -232,15 +249,16 @@ jobs:
           cd sdk
           config_apk_line=$(grep -n "USE_APK" Config-build.in | awk -F ':' '{print $1}')
           [ -n "$config_apk_line" ] && sed -n $(expr ${config_apk_line} + 2)p Config-build.in | grep "default y" >/dev/null ; [ $? == 0 ] && sed -i "$(expr ${config_apk_line} + 2)s/y/n/" Config-build.in
+          rm -rf bin/packages
           make defconfig
           echo "make package/luci-app-passwall2/{clean,compile} -j$(nproc)"
           make package/luci-app-passwall2/{clean,compile} -j$(nproc) V=s || make package/luci-app-passwall2/{clean,compile} -j1 V=s
+          rm -rf upload
           mkdir -p upload
           mv bin/packages/*/passwall2/luci-* upload/
           # lean release: keep zh-cn only
           rm -f upload/luci-i18n-passwall2-fa* upload/luci-i18n-passwall2-ru* \
             upload/luci-i18n-passwall2-zh-tw*
-          make clean
           cd upload
           echo "status=success" >> $GITHUB_OUTPUT
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
