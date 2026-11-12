@@ -106,7 +106,8 @@ Same as upstream: drop this repo into an OpenWrt buildroot `package/` and select
 Lean release, on purpose. A release contains:
 
 - `luci-app-passwall2-*.apk` and `luci-app-passwall2_*.ipk` (architecture `all`)
-- the language packs, including `luci-i18n-passwall2-zh-cn`
+- `luci-i18n-passwall2-zh-cn` only (`.apk` and `.ipk`); `fa`, `ru` and `zh-tw`
+  are not built and not uploaded
 
 It does **not** contain the 13 `packages_{ipk,apk}_<arch>.zip` dependency bundles.
 Those are taken from the upstream release with the same tag at install time:

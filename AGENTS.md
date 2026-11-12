@@ -15,8 +15,9 @@ The required result is:
 1. Keep package versions exactly equal to upstream.
 2. Remove the Xray core and all Xray-only code.
 3. Preserve the fork's component-update UI, log styling, and reset template.
-4. Build a lean release: main APK/IPK plus language packs; architecture
-   dependency bundles come from the upstream release at install time.
+4. Build a lean release: main APK/IPK plus the `zh-cn` language pack only;
+   architecture dependency bundles come from the upstream release at install
+   time.
 5. Point install/update operations at this fork.
 6. Keep install, update, and zero-residue uninstall automated and reproducible.
 
