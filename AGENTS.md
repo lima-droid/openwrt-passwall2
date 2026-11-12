@@ -15,7 +15,8 @@ The required result is:
 1. Keep package versions exactly equal to upstream.
 2. Remove the Xray core and all Xray-only code.
 3. Preserve the fork's component-update UI, log styling, and reset template.
-4. Build the same APK/IPK and architecture release structure as upstream.
+4. Build a lean release: main APK/IPK plus language packs; architecture
+   dependency bundles come from the upstream release at install time.
 5. Point install/update operations at this fork.
 6. Keep install, update, and zero-residue uninstall automated and reproducible.
 
@@ -98,14 +99,10 @@ APK:     26.11.3-r1
 ## Build And Release Rules
 
 - Use the standard OpenWrt SDK GitHub Actions workflow.
-- Preserve the full APK/IPK and 13-architecture build matrix.
+- Lean release only: `job_check` and `job_build_passwall2`. The 13-architecture
+  `job_auto_compile` matrix was removed on purpose; do not bring it back unless
+  the user asks for the full dependency bundles again.
 - Do not handcraft release packages on Windows.
-- Do not remove architecture jobs merely to shorten a build. The one exception is
-  lean mode: after two consecutive `Auto compile` failures caused by infrastructure
-  (apt, SDK download, runner image), switch to the lean release described in
-  `FORK-NOTES.md` (main package + language packs only, dependencies from the
-  upstream release). Go back to the full matrix once lean mode is stable and the
-  infrastructure failures have stopped.
 - Same-version rebuilds must use `-f force=true` and overwrite release assets.
 - Installer dependency ZIP preference:
   1. This fork's matching Release.
@@ -185,7 +182,7 @@ For installer changes:
   nftables, and `/tmp` contain no PassWall2 residue.
 
 Do not claim completion until the build is successful and the Release contains
-the expected main packages, language packages, and all architecture assets.
+the expected main package and language packs.
 
 ## Git
 

@@ -103,25 +103,20 @@ Same as upstream: drop this repo into an OpenWrt buildroot `package/` and select
 
 ## Release policy
 
-Default release = upstream layout: main package + language packs + the 13
-`packages_{ipk,apk}_<arch>.zip` dependency bundles. That is ~640 MB per release and
-roughly 3 hours of CI.
+Lean release, on purpose. A release contains:
 
-**Lean fallback.** If two `Auto compile` runs in a row fail for infrastructure reasons
-(apt, SDK download, runner image) rather than source reasons, switch the build to lean
-mode:
+- `luci-app-passwall2-*.apk` and `luci-app-passwall2_*.ipk` (architecture `all`)
+- the language packs, including `luci-i18n-passwall2-zh-cn`
 
-- keep `job_check` and `job_build_passwall2`; delete the whole `job_auto_compile` job
-  (the 13-architecture matrix)
-- the release then only contains `luci-app-passwall2-*.apk` / `*.ipk` and the language
-  packs, about 0.5 MB
-- architecture dependencies are no longer built here: `install.sh` already falls back to
-  the upstream release asset with the same name and the same tag, and installs only the
-  packages it names, so `xray-core` is never installed
-- build time drops to roughly 5-10 minutes and the apt/SDK failure modes disappear
+It does **not** contain the 13 `packages_{ipk,apk}_<arch>.zip` dependency bundles.
+Those are taken from the upstream release with the same tag at install time:
+`install.sh` looks for the bundle in this fork first, then falls back to
+`Openwrt-Passwall/openwrt-passwall2` and installs only the packages it names, so
+`xray-core` is never installed.
 
-Do not apply lean mode while the full build is green, and do not delete the matrix for
-any other reason.
+Build time is roughly 5-10 minutes and a release is about 0.5 MB, instead of
+three hours and 640 MB. The `job_auto_compile` matrix job was removed for this
+reason; `job_check` and `job_build_passwall2` are the only jobs left.
 
 ## License
 
