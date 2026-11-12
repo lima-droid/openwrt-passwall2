@@ -100,7 +100,12 @@ APK:     26.11.3-r1
 - Use the standard OpenWrt SDK GitHub Actions workflow.
 - Preserve the full APK/IPK and 13-architecture build matrix.
 - Do not handcraft release packages on Windows.
-- Do not remove architecture jobs merely to shorten a build.
+- Do not remove architecture jobs merely to shorten a build. The one exception is
+  lean mode: after two consecutive `Auto compile` failures caused by infrastructure
+  (apt, SDK download, runner image), switch to the lean release described in
+  `FORK-NOTES.md` (main package + language packs only, dependencies from the
+  upstream release). Go back to the full matrix once lean mode is stable and the
+  infrastructure failures have stopped.
 - Same-version rebuilds must use `-f force=true` and overwrite release assets.
 - Installer dependency ZIP preference:
   1. This fork's matching Release.

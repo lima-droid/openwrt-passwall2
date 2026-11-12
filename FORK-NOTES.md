@@ -101,6 +101,28 @@ python3 tools/check_tree.py /tmp/upstream   # assertions
 Same as upstream: drop this repo into an OpenWrt buildroot `package/` and select
 `luci-app-passwall2`. The dependency `sing-box` is selected by the package config.
 
+## Release policy
+
+Default release = upstream layout: main package + language packs + the 13
+`packages_{ipk,apk}_<arch>.zip` dependency bundles. That is ~640 MB per release and
+roughly 3 hours of CI.
+
+**Lean fallback.** If two `Auto compile` runs in a row fail for infrastructure reasons
+(apt, SDK download, runner image) rather than source reasons, switch the build to lean
+mode:
+
+- keep `job_check` and `job_build_passwall2`; delete the whole `job_auto_compile` job
+  (the 13-architecture matrix)
+- the release then only contains `luci-app-passwall2-*.apk` / `*.ipk` and the language
+  packs, about 0.5 MB
+- architecture dependencies are no longer built here: `install.sh` already falls back to
+  the upstream release asset with the same name and the same tag, and installs only the
+  packages it names, so `xray-core` is never installed
+- build time drops to roughly 5-10 minutes and the apt/SDK failure modes disappear
+
+Do not apply lean mode while the full build is green, and do not delete the matrix for
+any other reason.
+
 ## License
 
 GPL-3.0, same as upstream. All upstream copyright notices are preserved.
