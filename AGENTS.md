@@ -106,9 +106,9 @@ APK:     26.11.3-r1
 - Do not handcraft release packages on Windows.
 - Same-version rebuilds must use `-f force=true` and overwrite release assets.
 - Installer dependency ZIP preference:
-  1. This fork's matching Release.
-  2. Same-version upstream architecture ZIP as a temporary fallback.
-  3. System package feed only as a final fallback.
+  1. The upstream release at the same tag (`Openwrt-Passwall/openwrt-passwall2`),
+     always — this fork publishes no architecture bundles.
+  2. System package feed as a final fallback.
 - The upstream fallback may extract only the requested runtime packages and must
   never install `xray-core`.
 - Do not delete or recreate a Release/Tag without explicit user approval.

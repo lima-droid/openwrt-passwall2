@@ -667,22 +667,18 @@ prepare_release_bundle() {
 	darch="$(distro_arch)"
 	[ -n "$darch" ] || return 1
 	bundle_name="packages_${EXT}_${darch}.zip"
-	bundle_url="$(pick_asset_named_from "$ASSET_URLS" "$bundle_name" || true)"
-	bundle_digests="$ASSET_DIGESTS"
-	bundle_source="PassWall2 release"
 
-	# 本仓库 release 是精简版，不发布架构依赖包；正常情况下这里会回退到上游同 tag。
-	if [ -z "$bundle_url" ]; then
-		upstream_json="$(mktemp /tmp/passwall2-upstream.XXXXXX)"
-		register_tmp "$upstream_json"
-		upstream_api="https://api.github.com/repos/$UPSTREAM_REPO/releases/tags/$RELEASE_TAG"
-		download_file "$upstream_api" "$upstream_json" || return 1
-		upstream_urls="$(parse_asset_urls "$upstream_json")"
-		upstream_digests="$(parse_asset_digests "$upstream_json")"
-		bundle_url="$(pick_asset_named_from "$upstream_urls" "$bundle_name" || true)"
-		bundle_digests="$upstream_digests"
-		bundle_source="$UPSTREAM_REPO $RELEASE_TAG"
-	fi
+	# 本仓库是精简发布，不含架构依赖包，依赖固定取上游同 tag 的 release，
+	# 只解压安装点名的包，xray-core 不会进包列表。
+	upstream_json="$(mktemp /tmp/passwall2-upstream.XXXXXX)"
+	register_tmp "$upstream_json"
+	upstream_api="https://api.github.com/repos/$UPSTREAM_REPO/releases/tags/$RELEASE_TAG"
+	download_file "$upstream_api" "$upstream_json" || return 1
+	upstream_urls="$(parse_asset_urls "$upstream_json")"
+	upstream_digests="$(parse_asset_digests "$upstream_json")"
+	bundle_url="$(pick_asset_named_from "$upstream_urls" "$bundle_name" || true)"
+	bundle_digests="$upstream_digests"
+	bundle_source="$UPSTREAM_REPO $RELEASE_TAG"
 	[ -n "$bundle_url" ] || return 1
 
 	bundle_file="/tmp/$bundle_name"; register_tmp "$bundle_file"
@@ -847,7 +843,7 @@ install_dependencies() {
 	done
 	[ -n "$missing" ] || return 0
 
-	log "从 Release 补装依赖:$missing"
+	log "从上游架构包补装依赖:$missing"
 	if install_release_packages $missing; then
 		missing=""
 		for d in $DEPS; do
@@ -926,7 +922,7 @@ do_check() {
 		warn "   sing-box 存在但无法运行"
 		check_status=1
 	else
-		warn "   sing-box 缺失（安装时会从软件源或 release 架构包补装）"
+		warn "   sing-box 缺失（安装时会从软件源或上游架构包补装）"
 		check_status=1
 	fi
 	return "$check_status"

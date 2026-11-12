@@ -111,9 +111,9 @@ Lean release, on purpose. A release contains:
 
 It does **not** contain the 13 `packages_{ipk,apk}_<arch>.zip` dependency bundles.
 Those are taken from the upstream release with the same tag at install time:
-`install.sh` looks for the bundle in this fork first, then falls back to
-`Openwrt-Passwall/openwrt-passwall2` and installs only the packages it names, so
-`xray-core` is never installed.
+`install.sh` queries `Openwrt-Passwall/openwrt-passwall2` directly for the
+bundle, and installs only the packages it names, so `xray-core` is never
+installed.
 
 Build time is roughly 5-10 minutes and a release is about 0.5 MB, instead of
 three hours and 640 MB. The `job_auto_compile` matrix job was removed for this
