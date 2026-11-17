@@ -970,6 +970,18 @@ LOG_STYLE = """</script>
 
 
 def rules_fork_ui(tree):
+    # 0. root menu position: the fork shows PassWall2 at order 56 under Services
+    tree.sub(
+        APP + "/luasrc/controller/passwall2.lua",
+        'alias("admin", "services", appname, "settings"), _("PassWall 2"), 0)',
+        'alias("admin", "services", appname, "settings"), _("PassWall 2"), 56)',
+    )
+    tree.sub(
+        APP + "/luasrc/controller/passwall2.lua",
+        'alias("admin", "services", appname, "settings"), nil, 0)',
+        'alias("admin", "services", appname, "settings"), nil, 56)',
+    )
+
     # 1. the in-app updater must look at this repository, not the upstream API cache
     tree.sub(
         COM,
