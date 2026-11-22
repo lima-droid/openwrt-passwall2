@@ -180,6 +180,7 @@ class Tree:
 
 XRAY_MARKERS = [
     r"\bhas_xray\b",
+    r"[A-Za-z_]\w*[Xx]ray\w*",
     r"[\"'][^\"']*[Xx]ray[^\"']*[\"']",
 ]
 
@@ -260,9 +261,10 @@ def simplify_cond(cond):
     or_op = " || " if js_style else " or "
     simplified = []
     for term in _split_top(cond, ["and", "&&"]):
+        pieces = [p.strip() for p in _split_top(term, ["or", "||"])]
         kept = []
-        for piece in _split_top(term, ["or", "||"]):
-            piece = piece.strip()
+        dropped = 0
+        for piece in pieces:
             inner = _strip_parens(piece)
             if inner is not None:
                 sub = simplify_cond(inner)
@@ -274,12 +276,17 @@ def simplify_cond(cond):
                     kept.append(sub)
                 continue
             if has_xray_marker(piece):
+                dropped += 1
                 continue
             kept.append(piece)
         if not kept:
+            # `not has_xray` is true once Xray is gone, so the conjunct simply
+            # disappears; a bare `has_xray` makes the whole condition false.
+            if dropped == 1 and len(pieces) == 1 and re.match(r"^(?:not\s+|!\s*)", pieces[0]):
+                continue
             return None
         simplified.append(or_op.join(kept) if len(kept) > 1 else kept[0])
-    return and_op.join(simplified)
+    return and_op.join(simplified) if simplified else "true"
 
 
 _ARM_START = re.compile(r"^(\t*)(if|elseif)\s+(.*?)\s+then\s*$")
@@ -1087,20 +1094,11 @@ def rules_fork_ui(tree):
 def rules_singbox_masque(tree):
     """2026-11 upstream: masque / warp branches gated by Xray-only flags.
 
-    The generic arm pruners drop the Xray arm, but leave the `use_xray` local
-    and its guard behind. With Xray gone the node always goes to sing-box, so
-    the guard disappears instead of becoming a dead flag.
+    Conditions and the `use_xray` locals are handled generically (the marker
+    list knows xray identifiers, drop_xray_locals removes the assignment).
+    What is left is an assignment to a normal name whose right side mentions
+    Xray, which has to become a constant.
     """
-    tree.drop_lines(
-        SUB,
-        r'^\t*local use_xray = warp or alpn == "h2" or \(params\.fm and params\.fm ~= ""\)$',
-        1,
-    )
-    tree.sub(
-        SUB,
-        'if not use_xray and sub_other_type == "sing-box" and has_singbox then',
-        'if sub_other_type == "sing-box" and has_singbox then',
-    )
     tree.sub_all(
         SUB,
         "-- Node domain resolution for sing-box and Xray.",
@@ -1113,16 +1111,26 @@ def rules_singbox_masque(tree):
         "var warp = false;",
         1,
     )
-    tree.drop_lines(
-        HTML,
-        r"^\t*var use_xray = warp \|\| alpn === 'h2' \|\| !!queryParam\.fm;$",
-        1,
+
+
+def drop_xray_locals(tree):
+    """Drop `local xray_* = ...` / `var xray_* = ...` assignments.
+
+    They only exist to steer code between the two cores; with Xray gone the
+    value is irrelevant and any condition using it was already simplified.
+    """
+    pattern = re.compile(
+        r"^\s*(?:local|var|let)\s+[A-Za-z_]\w*xray\w*\s*=.*$",
+        re.IGNORECASE,
     )
-    tree.sub(
-        HTML,
-        'if (!use_xray && other_type == "sing-box" && has_singbox) {',
-        'if (other_type == "sing-box" && has_singbox) {',
-    )
+    for rel in LUA_FILES + [HTML]:
+        if not tree.exists(rel):
+            continue
+        lines = tree.text(rel).split("\n")
+        kept = [line for line in lines if not pattern.match(line)]
+        if len(kept) != len(lines):
+            tree.save(rel, "\n".join(kept))
+            tree.applied.append("drop_xray_locals %s (%d)" % (rel, len(lines) - len(kept)))
 
 
 def main():
@@ -1145,6 +1153,7 @@ def main():
     rules_meta(tree)
     rules_po(tree)
     rules_fork_ui(tree)
+    drop_xray_locals(tree)
     print("applied %d operations" % len(tree.applied))
     return 0
 
