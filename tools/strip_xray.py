@@ -1083,6 +1083,32 @@ def rules_fork_ui(tree):
         )
 
 
+
+def rules_singbox_masque(tree):
+    """2026-11 upstream: masque / warp branches gated by Xray-only flags.
+
+    The generic arm pruners only recognise has_xray markers; these new lines
+    use use_xray locals, so translate them to the sing-box-only branch.
+    """
+    tree.sub_all(SUB,
+                 'local use_xray = warp or alpn == "h2" or (params.fm and params.fm ~= "")',
+                 'local use_sb = false', 1)
+    tree.sub_all(SUB,
+                 'if not use_xray and sub_other_type == "sing-box" and has_singbox then',
+                 'if not use_sb and sub_other_type == "sing-box" and has_singbox then', 1)
+    tree.sub_all(SUB,
+                 '-- Node domain resolution for sing-box and Xray.',
+                 '-- Node domain resolution for sing-box.', 1)
+    tree.sub_all(HTML,
+                 'var warp = v_type === "Xray" && opt.get(dom_prefix + "masque_warp").checked;',
+                 'var warp = false;', 1)
+    tree.sub_all(HTML,
+                 "var use_xray = warp || alpn === 'h2' || !!queryParam.fm;",
+                 'var use_sb = false;', 1)
+    tree.sub_all(HTML,
+                 'if (!use_xray && other_type == "sing-box" && has_singbox) {',
+                 'if (!use_sb && other_type == "sing-box" && has_singbox) {', 1)
+
 def main():
     if len(sys.argv) != 2:
         print("usage: strip_xray.py <repo-root>", file=sys.stderr)
@@ -1095,6 +1121,7 @@ def main():
             prune_lua_arms(tree, rel)
     rules_lua(tree)
     rules_html(tree)
+    rules_singbox_masque(tree)
     rules_api(tree)
     rules_strings(tree)
     rules_app_sh(tree)
