@@ -1929,8 +1929,7 @@ local current_node = map:get(section)
 			var public_key = queryParam.publickey || queryParam['public-key'] || queryParam.public_key || '';
 			var warp = !!public_key;
 			var alpn = queryParam.alpn || queryParam.vhttp || queryParam.network || 'h3';
-			var use_sb = false;
-			if (!use_sb && other_type == "sing-box" && has_singbox) {
+			if (other_type == "sing-box" && has_singbox) {
 				dom_prefix = "singbox_";
 				opt.set('type', "sing-box");
 			}

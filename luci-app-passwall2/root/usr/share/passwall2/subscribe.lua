@@ -1687,8 +1687,7 @@ local function processData(szType, content, add_mode, group, sub_cfg)
 		local public_key = params.publickey or params['public-key'] or params.public_key
 		local warp = public_key and public_key ~= ""
 		local alpn = params.alpn or params.vhttp or params.network or "h3"
-		local use_sb = false
-		if not use_sb and sub_other_type == "sing-box" and has_singbox then
+		if sub_other_type == "sing-box" and has_singbox then
 			result.type = "sing-box"
 		else
 			log(2, i18n.translatef("Skipping the %s node is due to incompatibility with the %s core program or incorrect node usage type settings.", szType, "sing-box"))

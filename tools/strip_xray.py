@@ -1087,27 +1087,43 @@ def rules_fork_ui(tree):
 def rules_singbox_masque(tree):
     """2026-11 upstream: masque / warp branches gated by Xray-only flags.
 
-    The generic arm pruners only recognise has_xray markers; these new lines
-    use use_xray locals, so translate them to the sing-box-only branch.
+    The generic arm pruners drop the Xray arm, but leave the `use_xray` local
+    and its guard behind. With Xray gone the node always goes to sing-box, so
+    the guard disappears instead of becoming a dead flag.
     """
-    tree.sub_all(SUB,
-                 'local use_xray = warp or alpn == "h2" or (params.fm and params.fm ~= "")',
-                 'local use_sb = false', 1)
-    tree.sub_all(SUB,
-                 'if not use_xray and sub_other_type == "sing-box" and has_singbox then',
-                 'if not use_sb and sub_other_type == "sing-box" and has_singbox then', 1)
-    tree.sub_all(SUB,
-                 '-- Node domain resolution for sing-box and Xray.',
-                 '-- Node domain resolution for sing-box.', 1)
-    tree.sub_all(HTML,
-                 'var warp = v_type === "Xray" && opt.get(dom_prefix + "masque_warp").checked;',
-                 'var warp = false;', 1)
-    tree.sub_all(HTML,
-                 "var use_xray = warp || alpn === 'h2' || !!queryParam.fm;",
-                 'var use_sb = false;', 1)
-    tree.sub_all(HTML,
-                 'if (!use_xray && other_type == "sing-box" && has_singbox) {',
-                 'if (!use_sb && other_type == "sing-box" && has_singbox) {', 1)
+    tree.drop_lines(
+        SUB,
+        r'^\t*local use_xray = warp or alpn == "h2" or \(params\.fm and params\.fm ~= ""\)$',
+        1,
+    )
+    tree.sub(
+        SUB,
+        'if not use_xray and sub_other_type == "sing-box" and has_singbox then',
+        'if sub_other_type == "sing-box" and has_singbox then',
+    )
+    tree.sub_all(
+        SUB,
+        "-- Node domain resolution for sing-box and Xray.",
+        "-- Node domain resolution for sing-box.",
+        1,
+    )
+    tree.sub_all(
+        HTML,
+        'var warp = v_type === "Xray" && opt.get(dom_prefix + "masque_warp").checked;',
+        "var warp = false;",
+        1,
+    )
+    tree.drop_lines(
+        HTML,
+        r"^\t*var use_xray = warp \|\| alpn === 'h2' \|\| !!queryParam\.fm;$",
+        1,
+    )
+    tree.sub(
+        HTML,
+        'if (!use_xray && other_type == "sing-box" && has_singbox) {',
+        'if (other_type == "sing-box" && has_singbox) {',
+    )
+
 
 def main():
     if len(sys.argv) != 2:
