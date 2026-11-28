@@ -609,7 +609,19 @@ def rules_api(tree):
         '--api.log(0, "V2ray/Xray Geo convert to Sing-Box rule-set:")',
         '--api.log(0, "V2ray Geo convert to Sing-Box rule-set:")',
     )
-    tree.resub(SINGBOX_UTIL, r'--兼容xray "域名\+DNS" 格式ech', "--兼容 \"域名+DNS\" 格式ech", expect=1)
+    # upstream renamed this comment to English in 2026-11; accept either form
+    tree.sub_all(
+        SINGBOX_UTIL,
+        '-- Support Xray\'s "domain+DNS" ECH format.',
+        '-- Support the "domain+DNS" ECH format.',
+        0,
+    )
+    tree.sub_all(
+        SINGBOX_UTIL,
+        '--兼容xray "域名+DNS" 格式ech',
+        '--兼容 "域名+DNS" 格式ech',
+        0,
+    )
     tree.sub(
         SINGBOX_UTIL,
         "-- There is no additional encryption support: it's essentially re-encryption. And Xray-core is incompatible with v2ray-core here.",
@@ -1008,6 +1020,29 @@ def rules_fork_ui(tree):
         "\t\treturn FORK_RELEASES\n"
         "\tend\n"
         "}",
+    )
+
+    # 1b. binary component updates (sing-box, geoview) ask the official GitHub
+    #     release API, not the upstream api-cache JSON
+    tree.sub(
+        COM,
+        "local function gh_release_url(self)\n"
+        '\t--return "https://api.github.com/repos/" .. self.repo .. "/releases/latest"\n'
+        '\treturn "https://github.com/Openwrt-Passwall/openwrt-passwall-packages/releases/download/api-cache/" .. string.lower(self.name) .. "-release-api.json"\n'
+        "end",
+        "local function gh_release_url(self)\n"
+        '\treturn "https://api.github.com/repos/" .. self.repo .. "/releases/latest"\n'
+        "end",
+    )
+    tree.sub(
+        COM,
+        "local function gh_pre_release_url(self)\n"
+        '\t--return "https://api.github.com/repos/" .. self.repo .. "/releases?per_page=1"\n'
+        '\treturn "https://github.com/Openwrt-Passwall/openwrt-passwall-packages/releases/download/api-cache/" .. string.lower(self.name) .. "-pre-release-api.json"\n'
+        "end",
+        "local function gh_pre_release_url(self)\n"
+        '\treturn "https://api.github.com/repos/" .. self.repo .. "/releases?per_page=1"\n'
+        "end",
     )
 
     # 2. drop the "run from /tmp" hint and the GitHub-proxy description
