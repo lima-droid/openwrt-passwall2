@@ -1,13 +1,11 @@
 local _M = {}
 
 local function gh_release_url(self)
-	--return "https://api.github.com/repos/" .. self.repo .. "/releases/latest"
-	return "https://github.com/Openwrt-Passwall/openwrt-passwall-packages/releases/download/api-cache/" .. string.lower(self.name) .. "-release-api.json"
+	return "https://api.github.com/repos/" .. self.repo .. "/releases/latest"
 end
 
 local function gh_pre_release_url(self)
-	--return "https://api.github.com/repos/" .. self.repo .. "/releases?per_page=1"
-	return "https://github.com/Openwrt-Passwall/openwrt-passwall-packages/releases/download/api-cache/" .. string.lower(self.name) .. "-pre-release-api.json"
+	return "https://api.github.com/repos/" .. self.repo .. "/releases?per_page=1"
 end
 
 _M.order = {
